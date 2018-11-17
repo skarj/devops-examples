@@ -1,0 +1,9 @@
+*.iml
+.idea/
+*.pyc
+.vagrant
+.env
+**/vendor/*
+*.swp
+*.swo
+.DS_Store
