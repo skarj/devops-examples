@@ -4,4 +4,7 @@ services:
     image: amazon/dynamodb-local
     ports:
      - "8000:8000"
-  
+  s3server:
+    image: scality/s3server
+    ports:
+     - "8080:8000"
