@@ -1,5 +1,6 @@
 import boto3
-from datetime import datetime
+from datetime                       import datetime
+from botocore.exceptions            import ClientError
 
 class DBController:
     """
@@ -7,6 +8,14 @@ class DBController:
     """
     def __init__(self, connectionManager):
         self.cm = connectionManager
+
+    def checkIfTableExists(self):
+        try:
+            is_table_existing = self.cm.getImagesTable().table_status in ("CREATING", "UPDATING",
+                                                    "DELETING", "ACTIVE")
+        except ClientError:
+            is_table_existing = False
+            self.cm.createImagesTable()
 
     def addImage(self, image_name, upload_url, s3_url):
  

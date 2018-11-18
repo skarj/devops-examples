@@ -1,7 +1,6 @@
 # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/dynamodb.html
 
 import boto3
-from botocore.exceptions import ClientError
 
 def getDynamoDBConnection(endpoint_url=None, local=False):
     if local:
