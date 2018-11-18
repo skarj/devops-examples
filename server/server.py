@@ -1,5 +1,7 @@
-from flask import Flask
-from flask_restful import Api, Resource, reqparse
+from flask                          import Flask
+from flask_restful                  import Api, Resource, reqparse
+from dynamodb.connectionManager     import ConnectionManager
+from dynamodb.DBController          import DBController
 
 app = Flask(__name__)
 api = Api(app)
@@ -24,6 +26,12 @@ IMAGES_JSON = [
         'timestamp': '1542143608'
     }
 ]
+
+cm = ConnectionManager(mode='local', endpoint_url='http://localhost:8000')
+controller = DBController(cm)
+
+controller.checkIfTableExists()
+#controller.addImage('name2', 'ffefef', 'fefefef')
 
 class Files(Resource):
     def get(self):
