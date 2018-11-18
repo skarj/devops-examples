@@ -8,16 +8,13 @@ s3 = boto3.client(
     endpoint_url='http://localhost:8080'
 )
 
-def upload_file(file, bucket_name, filename, acl="public-read"):
+def upload_file(bucket, body, key):
 
     try:
-        s3.upload_file(
-            file,
-            bucket_name,
-            filename,
-            ExtraArgs={
-                "ACL": acl
-            }
+        s3.upload_fileobj(
+            body,
+            bucket,
+            key
         )
 
     except Exception as e:
