@@ -1,10 +1,11 @@
 # devops-callenge
-## Installation
+## Starting dev environment
 
     python -m virtualenv ~/Projects/skaarj/virtualenv
     source ~/Projects/skaarj/virtualenv/bin/activate
     pip install -r requirements.txt
-    docker pull amazon/dynamodb-local
+    pip install docker-compose
+    docker-compose up -d
 
 
 ## List all images
@@ -29,3 +30,9 @@
         name: 'Docker logo',
         url: 'https://www.docker.com/sites/default/files/Whale%20Logo332_5.png'
     }
+
+## Documents
+  * https://technologyconversations.com/2014/08/12/rest-api-with-json/
+  * https://codeburst.io/this-is-how-easy-it-is-to-create-a-rest-api-8a25122ab1f3
+  * https://boto3.amazonaws.com/v1/documentation/api/latest/guide/dynamodb.html
+  * https://docs.aws.amazon.com/en_us/amazondynamodb/latest/developerguide/GettingStarted.Python.03.html

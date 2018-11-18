@@ -22,11 +22,9 @@ class Image(Resource):
         url = json_data['url']
         s3_url = 'http://bucket.s3-aws-region.amazonaws.com/aaaaaa'
 
-        # if(name == images["name"]):
-        #     return "Image with name {} already exists".format(name), 400
+        # TODO: check if image name is in use
 
         controller.addImage(name, url, s3_url)
-
         return jsonify(name=name, url=url, s3_url=s3_url)
 
 
