@@ -40,4 +40,4 @@ def createImagesTable(db):
     # Wait until the table exists.
     table.meta.client.get_waiter('table_exists').wait(TableName='images')
 
-    return(table)
+    return table

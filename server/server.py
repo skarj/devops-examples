@@ -13,7 +13,8 @@ controller.checkIfTableExists()
 
 class Image(Resource):
     def get(self):
-        return 'todo', 200
+        images = controller.listImages()
+        return images, 200
 
     def post(self):
         parser = reqparse.RequestParser()
@@ -26,6 +27,9 @@ class Image(Resource):
 
         controller.addImage(args['name'], args['url'], 'http://bucket.s3-aws-region.amazonaws.com/aaaaaa')
 
-api.add_resource(Image, "/images")
+        return "Added {}".format(args['name']), 200
+
+
+api.add_resource(Image, "/api/v1/images")
 
 app.run(debug=True)
