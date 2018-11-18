@@ -33,7 +33,5 @@ class DBController:
     def listImages(self):
 
         table = self.cm.getImagesTable()
-
         response = table.scan()
-
         return response['Items']

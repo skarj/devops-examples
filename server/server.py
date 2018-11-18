@@ -1,5 +1,5 @@
-from flask                          import Flask
-from flask_restful                  import Api, Resource, reqparse
+from flask                          import Flask, jsonify, request
+from flask_restful                  import Api, Resource
 from dynamodb.connectionManager     import ConnectionManager
 from dynamodb.DBController          import DBController
 
@@ -14,22 +14,23 @@ controller.checkIfTableExists()
 class Image(Resource):
     def get(self):
         images = controller.listImages()
-        return images, 200
+        return images
 
     def post(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument("name")
-        parser.add_argument("url")
-        args = parser.parse_args()
+        json_data = request.get_json(force=True)
+        name = json_data['name']
+        url = json_data['url']
+        s3_url = 'http://bucket.s3-aws-region.amazonaws.com/aaaaaa'
 
         # if(name == images["name"]):
         #     return "Image with name {} already exists".format(name), 400
 
-        controller.addImage(args['name'], args['url'], 'http://bucket.s3-aws-region.amazonaws.com/aaaaaa')
+        controller.addImage(name, url, s3_url)
 
-        return "Added {}".format(args['name']), 200
+        return jsonify(name=name, url=url, s3_url=s3_url)
 
 
 api.add_resource(Image, "/api/v1/images")
 
-app.run(debug=True)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000 ,debug=True)
