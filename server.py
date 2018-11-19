@@ -2,14 +2,17 @@ from flask                          import Flask, jsonify, request
 from flask_restful                  import Api, Resource
 from dynamodb.connectionManager     import ConnectionManager
 from dynamodb.DBController          import DBController
+from tools                          import s3
+import urllib2
 
 app = Flask(__name__)
 api = Api(app)
 
 cm = ConnectionManager(mode='local', endpoint_url='http://localhost:8000')
 controller = DBController(cm)
-
 controller.checkIfTableExists()
+
+s3_bucket = 'images'
 
 class Image(Resource):
     def get(self):
@@ -20,12 +23,20 @@ class Image(Resource):
         json_data = request.get_json(force=True)
         name = json_data['name']
         url = json_data['url']
-        s3_url = 'http://bucket.s3-aws-region.amazonaws.com/aaaaaa'
-
+        bucket = s3_bucket
+        
         # TODO: check if image name is in use
 
-        controller.addImage(name, url, s3_url)
-        return jsonify(name=name, url=url, s3_url=s3_url)
+        # download image
+        req = urllib2.Request(url)
+        resp = urllib2.urlopen(req)
+
+        s3.upload_file(bucket, name, resp)
+
+        # save metadata to the dynamodb
+        controller.addImage(name, url, bucket)
+
+        return jsonify(name=name, url=url, s3_url=bucket)
 
 
 api.add_resource(Image, "/api/v1/images")
