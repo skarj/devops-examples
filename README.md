@@ -41,17 +41,17 @@
 
     See all buckets:
 
-    aws s3 ls --endpoint-url=http://localhost:8080
+    aws s3 ls --endpoint-url=http://localhost:8008
 
     Create bucket:
 
-    aws s3 mb --endpoint-url=http://localhost:8080 s3://images
+    aws s3 mb --endpoint-url=http://localhost:8008 s3://images
 
     List bucket
 
-    aws s3api list-objects --endpoint-url=http://localhost:8080 --bucket images
+    aws s3api list-objects --endpoint-url=http://localhost:8008 --bucket images
 
-    wget http://localhost:8080/images/image1
+    wget http://localhost:8008/images/image1
 
 ## Documents
   * https://technologyconversations.com/2014/08/12/rest-api-with-json/

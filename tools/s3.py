@@ -1,22 +1,16 @@
-
 import boto3
 
-s3 = boto3.client(
-    's3',
-    aws_access_key_id='accessKey1',
-    aws_secret_access_key='verySecretKey1',
-    endpoint_url='http://localhost:8080'
+session = boto3.Session()
+s3 = session.resource('s3',
+    endpoint_url='http://127.0.0.1:8080/',
+    use_ssl=False
 )
 
-def upload_file(bucket, key, body):
-
+def put_object(bucket, key, body):
+    bucket = s3.Bucket(bucket)
     try:
-        s3.put_object(
-            Bucket = bucket,
-            Key = key,
-            Body = body
-        )
-
+        print(bucket)
+        bucket.upload_fileobj(body, key)
     except Exception as e:
         print("Error: ", e)
         return e
