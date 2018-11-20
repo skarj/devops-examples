@@ -7,4 +7,4 @@ services:
   s3server:
     image: scality/s3server
     ports:
-     - "8080:8000"
+     - "8008:8000"

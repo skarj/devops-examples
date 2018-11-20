@@ -1,4 +1,3 @@
-
 from .setupDynamoDB import getDynamoDBConnection, createImagesTable
 
 class ConnectionManager:
@@ -11,10 +10,8 @@ class ConnectionManager:
             if endpoint_url is None:
                 endpoint_url = 'http://localhost:8000'
             self.db = getDynamoDBConnection(endpoint_url=endpoint_url, local=True)
-        elif mode == "service":
-            print('todo')
         else:
-            raise Exception("Invalid arguments, please refer to usage.")
+            print('todo')
 
         self.setupImagesTable()
 
@@ -25,7 +22,7 @@ class ConnectionManager:
             raise e("There was an issue trying to retrieve the images table")
 
     def getImagesTable(self):
-        if self.imagesTable == None:    
+        if self.imagesTable == None:
             self.setupImagesTable()
 
         return self.imagesTable

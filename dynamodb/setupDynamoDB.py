@@ -13,20 +13,19 @@ def getDynamoDBConnection(endpoint_url=None, local=False):
 
     return db
 
-
 def createImagesTable(db):
     # Create the DynamoDB table.
     table = db.create_table(
         TableName='images',
         KeySchema=[
             {
-                'AttributeName': 'ImageName',
+                'AttributeName': 'ImageID',
                 'KeyType': 'HASH'
             }
         ],
         AttributeDefinitions=[
             {
-                'AttributeName': 'ImageName',
+                'AttributeName': 'ImageID',
                 'AttributeType': 'S'
             }
 
