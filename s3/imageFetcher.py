@@ -2,7 +2,7 @@ import boto3
 import requests
 from uuid import uuid4
 
-class ImageUploader:
+class ImageFetcher:
     """
     Image uploading from extrernal URL to s3 bucket
     """
