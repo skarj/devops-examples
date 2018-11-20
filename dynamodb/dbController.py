@@ -3,7 +3,7 @@ from botocore.exceptions            import ClientError
 
 class DBController:
     """
-    DBController class provides the necessary DynamoDB API calls.
+    DynamoDB API calls.
     """
     def __init__(self, connectionManager):
         self.cm = connectionManager
@@ -17,7 +17,6 @@ class DBController:
             self.cm.createImagesTable()
 
     def addImage(self, image_id, image_name, upload_url, s3_url):
-
         date = str(datetime.now())
         table = self.cm.getImagesTable()
         table.put_item(
@@ -31,7 +30,6 @@ class DBController:
         )
 
     def listImages(self):
-
         table = self.cm.getImagesTable()
         response = table.scan()
         return response['Items']
