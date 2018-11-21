@@ -3,15 +3,19 @@ from flask_restful                  import Api, Resource
 from dynamodb.connectionManager     import ConnectionManager
 from dynamodb.dbController          import DBController
 from s3.imageFetcher                import ImageFetcher
+from os                             import environ
 
 app = Flask(__name__)
 api = Api(app)
 
-cm = ConnectionManager(mode='local')
+db_endpoint_url=environ.get('DYNAMODB_ENDPOINT')
+s3_endpoint_url=environ.get('S3_ENDPOINT')
+mode=environ.get('MODE')
+bucket = 'images'
+
+cm = ConnectionManager(endpoint_url=db_endpoint_url)
 dynamodb = DBController(cm)
 dynamodb.checkIfTableExists()
-
-bucket = 'images'
 
 class Image(Resource):
     def get(self):
@@ -23,7 +27,7 @@ class Image(Resource):
         name = json_data['name']
         url = json_data['url']
 
-        uploader=ImageFetcher(mode='local')
+        uploader=ImageFetcher(mode=mode)
         stream = uploader.get_url_stream(url)
         image_id = uploader.upload_object(bucket, stream)
 

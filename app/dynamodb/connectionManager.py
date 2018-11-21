@@ -2,17 +2,14 @@ from .setupDynamoDB import getDynamoDBConnection, createImagesTable
 
 class ConnectionManager:
 
-    def __init__(self, mode=None, endpoint_url=None):
+    def __init__(self, endpoint_url=None):
         self.db = None
-        self.imageTable = None
+        self.imagesTable = None
 
-        if mode == "local":
-            if endpoint_url is None:
-                endpoint_url = 'http://localhost:8000'
-            self.db = getDynamoDBConnection(endpoint_url=endpoint_url, local=True)
-        else:
-            print('todo')
+        if endpoint_url is None:
+            endpoint_url = 'http://localhost:8000'
 
+        self.db = getDynamoDBConnection(endpoint_url=endpoint_url, local=True)
         self.setupImagesTable()
 
     def setupImagesTable(self):

@@ -1,0 +1,24 @@
+version: "3"
+services:
+  server:
+    build: .
+    ports:
+     - "80:5000"
+    environment:
+      - AWS_ACCESS_KEY_ID=AccessKey1
+      - AWS_SECRET_ACCESS_KEY=verySecretKey1
+      - AWS_DEFAULT_REGION=eu-central-1
+      - DYNAMODB_ENDPOINT=http://dynamodb:8000/
+      - S3_ENDPOINT=http://s3server:8008
+      - MODE=local
+    links:
+      - dynamodb
+      - s3server
+  dynamodb:
+    image: amazon/dynamodb-local
+    ports:
+     - "8000:8000"
+  s3server:
+    image: scality/s3server
+    ports:
+     - "8008:8000"

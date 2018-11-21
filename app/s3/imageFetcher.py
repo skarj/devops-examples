@@ -6,7 +6,7 @@ class ImageFetcher:
     """
     Image uploading from extrernal URL to s3 bucket
     """
-    def __init__(self, mode=None, endpoint_url=None, use_ssl=False):
+    def __init__(self, mode='local', endpoint_url=None, use_ssl=False):
         self.session = None
         self.s3 = None
 

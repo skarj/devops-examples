@@ -33,25 +33,25 @@
         url: 'https://www.docker.com/sites/default/files/Whale%20Logo332_5.png'
     }
 
+
 ## S3
 
     [default]
     aws_access_key_id = accessKey1
     aws_secret_access_key = verySecretKey1
 
-    See all buckets:
+See all buckets:
 
     aws s3 ls --endpoint-url=http://localhost:8008
 
-    Create bucket:
+Create bucket:
 
     aws s3 mb --endpoint-url=http://localhost:8008 s3://images
 
-    List bucket
+List bucket
 
     aws s3api list-objects --endpoint-url=http://localhost:8008 --bucket images
 
-    wget http://localhost:8008/images/image1
 
 ## Documents
   * https://technologyconversations.com/2014/08/12/rest-api-with-json/
