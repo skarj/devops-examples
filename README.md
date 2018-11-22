@@ -5,6 +5,11 @@
     source ~/Projects/skaarj/virtualenv/bin/activate
     pip install -r requirements.txt
     pip install docker-compose
+    docker-compose up -d dynamodb s3server
+
+or
+
+    pip install docker-compose
     docker-compose up -d
 
 
@@ -22,7 +27,7 @@
     Request body: EMPTY
 
 
-## Request book creation
+## Request image uploading
 
     Protocol: POST
     URI: /api/v1/images
@@ -34,7 +39,7 @@
     }
 
 
-## S3
+## S3 Configuration
 
     [default]
     aws_access_key_id = accessKey1
