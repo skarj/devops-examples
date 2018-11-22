@@ -2,14 +2,12 @@
 
 import boto3
 
-def getDynamoDBConnection(endpoint_url=None, local=False):
+def getDynamoDBConnection(endpoint_url=None, secret_access_key=None, access_key_id=None, local=False):
+
     if local:
-        db = boto3.resource(
-            'dynamodb',
+        db = boto3.resource('dynamodb',
             endpoint_url=endpoint_url
         )
-    else:
-        print('todo')
 
     return db
 

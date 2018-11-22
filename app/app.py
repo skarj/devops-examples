@@ -8,12 +8,23 @@ from os                             import environ
 app = Flask(__name__)
 api = Api(app)
 
-db_endpoint_url=environ.get('DYNAMODB_ENDPOINT')
-s3_endpoint_url=environ.get('S3_ENDPOINT')
 mode=environ.get('MODE')
-bucket = 'images'
+aws_region=environ.get('AWS_DEFAULT_REGION')
 
-cm = ConnectionManager(endpoint_url=db_endpoint_url)
+s3_bucket = environ.get('S3_BUCKET')
+s3_endpoint_url = environ.get('S3_ENDPOINT')
+s3_access_key = environ.get('S3_ACCESS_KEY')
+s3_secret_key = environ.get('S3_SECRET_KEY')
+
+db_secret_access_key = environ.get('DYNAMODB_ACCESS_KEY')
+db_access_key_id = environ.get('DYNAMODB_SECRET_KEY')
+db_endpoint_url = environ.get('DYNAMODB_ENDPOINT')
+
+cm = ConnectionManager(
+    endpoint_url=db_endpoint_url,
+    secret_access_key=db_secret_access_key,
+    access_key_id=db_access_key_id
+)
 dynamodb = DBController(cm)
 dynamodb.checkIfTableExists()
 
@@ -27,11 +38,18 @@ class Image(Resource):
         name = json_data['name']
         url = json_data['url']
 
-        uploader=ImageFetcher(mode=mode)
+        uploader=ImageFetcher(
+            mode=mode,
+            endpoint_url=s3_endpoint_url,
+            access_key=s3_access_key,
+            secret_key=s3_secret_key,
+            region=aws_region
+        )
+                              
         stream = uploader.get_url_stream(url)
-        image_id = uploader.upload_object(bucket, stream)
+        image_id = uploader.upload_object(s3_bucket, stream)
 
-        dynamodb.addImage(image_id, name, url, bucket)
+        dynamodb.addImage(image_id, name, url, s3_bucket)
 
         return jsonify(
             Result="Image successfully uploaded",
