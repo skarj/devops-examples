@@ -5,7 +5,15 @@
     source ~/Projects/skaarj/virtualenv/bin/activate
     pip install -r requirements.txt
     pip install docker-compose
-    docker-compose up -d dynamodb s3server
+    docker-compose up -d dynamodb s3server aws-cli
+
+    export APP_SETTINGS="config.dev"
+    export AWS_ACCESS_KEY="accessKey1"
+    export AWS_SECRET_KEY="verySecretKey1"
+    export AWS_REGION="eu-central-1"
+    export S3_BUCKET="images"
+
+    python ./app.py
 
 or
 
@@ -15,35 +23,25 @@ or
 
 ## List all images
 
-    Protocol: GET
-    URI: /api/v1/images
-    Request body: EMPTY
+    curl -X GET "localhost:5000/api/v1/images"
 
 
 ## Request a single image
 
-    Protocol: GET
-    URI: /api/v1/images/name/test1
-    Request body: EMPTY
+    curl -X GET "localhost:5000/api/v1/images/name/test1"
 
 
 ## Request image uploading
 
-    Protocol: POST
-    URI: /api/v1/images
-    Request body:
-
+    curl -X POST "localhost:5000/api/v1/images" -H 'Content-Type: application/json' -d'
     {
-        name: 'Docker logo',
-        url: 'https://www.docker.com/sites/default/files/Whale%20Logo332_5.png'
+        "name": "Docker logo",
+        "url" : "https://www.docker.com/sites/default/files/Whale%20Logo332_5.png"
     }
+    '
 
 
-## S3 Configuration
-
-    [default]
-    aws_access_key_id = accessKey1
-    aws_secret_access_key = verySecretKey1
+## S3 bucket check
 
 See all buckets:
 

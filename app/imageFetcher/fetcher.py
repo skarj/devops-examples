@@ -10,17 +10,15 @@ class Fetcher:
         self,
         endpoint_url=None,
         secret_key=None,
-        access_key=None):
-
-        self.session = None
-        self.s3 = None
+        access_key=None,
+        region=None):
 
         self.session = boto3.Session()
         self.s3 = self.session.resource('s3',
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
-            #region_name=region
+            region_name=region
         )
 
     def upload_object(self, bucket, fileobj):

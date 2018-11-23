@@ -5,7 +5,7 @@ services:
     ports:
      - "80:5000"
     environment:
-      - APP_SETTINGS=config.dev
+      - APP_SETTINGS=config.test
       - AWS_ACCESS_KEY=accessKey1
       - AWS_SECRET_KEY=verySecretKey1
       - AWS_REGION=eu-central-1
@@ -20,8 +20,9 @@ services:
       - s3server
   dynamodb:
     image: amazon/dynamodb-local
+    command: -jar DynamoDBLocal.jar -inMemory -sharedDb
     ports:
-     - "8000:8000"
+      - "8000:8000"
   s3server:
     image: scality/s3server
     environment:
@@ -30,12 +31,19 @@ services:
     ports:
      - "8008:8000"
   aws-cli:
-    image: mesosphere/aws-cli
+    image: garland/aws-cli-docker
     environment:
       - AWS_ACCESS_KEY_ID=accessKey1
       - AWS_SECRET_ACCESS_KEY=verySecretKey1
+      - AWS_DEFAULT_REGION=eu-central-1
     depends_on:
       - s3server
-    command: s3 mb --endpoint-url=http://s3server:8000 s3://images
+    command: >
+      /bin/sh -c "
+        aws s3api create-bucket \
+          --bucket images \
+          --acl public-read \
+          --endpoint http://s3server:8000;
+      "
     links:
       - s3server

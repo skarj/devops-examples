@@ -8,8 +8,6 @@ def getDynamoDBConnection(
     access_key_id=None,
     region=None):
 
-    print(secret_access_key, access_key_id, region)
-
     db = boto3.resource('dynamodb',
         endpoint_url=endpoint_url,
         aws_secret_access_key=secret_access_key,

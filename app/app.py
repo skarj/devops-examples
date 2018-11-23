@@ -9,38 +9,47 @@ app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(environ['APP_SETTINGS'])
 api = Api(app)
 
-cm = ConnectionManager(
-    secret_access_key=app.config['AWS_SECRET_KEY'],
-    access_key_id=app.config['AWS_ACCESS_KEY'],
-    region=app.config['AWS_REGION'],
-    endpoint_url=app.config['DYNAMODB_ENDPOINT']
-)
-dynamodb = DBController(cm)
-dynamodb.checkIfTableExists()
-
 class Image(Resource):
+    def __init__(self):
+
+        self.fetcher = Fetcher(
+            access_key=app.config["AWS_ACCESS_KEY"],
+            secret_key=app.config["AWS_SECRET_KEY"],
+            region=app.config["AWS_REGION"],
+            endpoint_url=app.config["S3_ENDPOINT"]
+        )
+
+        # TODO
+        #self.fetcher.checkIfBucketExists()
+
+        cm = ConnectionManager(
+            secret_access_key = app.config['AWS_SECRET_KEY'],
+            access_key_id = app.config['AWS_ACCESS_KEY'],
+            region = app.config['AWS_REGION'],
+            endpoint_url = app.config['DYNAMODB_ENDPOINT']
+        )
+        self.dynamodb = DBController(cm)
+        self.dynamodb.checkIfTableExists()
+
     def get(self):
-        images = dynamodb.listImages()
+        images = self.dynamodb.listImages()
         return images
 
     def post(self):
         json_data = request.get_json(force=True)
-        name = json_data['name']
-        url = json_data['url']
+        image_name = json_data['name']
+        image_url = json_data['url']
+        s3_bucket = app.config["S3_BUCKET"]
+        s3_image_url = app.config["S3_ENDPOINT"] + s3_bucket
 
-        fetcher=Fetcher(
-            access_key=app.config["AWS_SECRET_KEY"],
-            secret_key=app.config["AWS_ACCESS_KEY"],
-            endpoint_url=app.config["S3_ENDPOINT"]
-        )
-        stream = fetcher.get_url_stream(url)
-        image_id = fetcher.upload_object(app.config["S3_BUCKET"], stream)
+        stream = self.fetcher.get_url_stream(image_url)
+        image_id = self.fetcher.upload_object(s3_bucket, stream)
 
-        dynamodb.addImage(image_id, name, url, app.config["S3_BUCKET"])
+        self.dynamodb.addImage(image_id, image_name, image_url, s3_image_url)
 
         return jsonify(
             Result="Image successfully uploaded",
-            URL=url
+            URL=s3_image_url
         )
 
 api.add_resource(Image, "/api/v1/images")

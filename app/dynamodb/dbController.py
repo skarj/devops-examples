@@ -3,7 +3,7 @@ from botocore.exceptions            import ClientError
 
 class DBController:
     """
-    DynamoDB API calls.
+    DynamoDB API calls
     """
     def __init__(self, connectionManager):
         self.cm = connectionManager
