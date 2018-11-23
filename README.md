@@ -1,4 +1,4 @@
-# devops-callenge
+# S3 Image Uploader
 ## Starting dev environment
 
     python -m virtualenv ~/Projects/skaarj/virtualenv

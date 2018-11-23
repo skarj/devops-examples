@@ -2,12 +2,20 @@
 
 import boto3
 
-def getDynamoDBConnection(endpoint_url=None, secret_access_key=None, access_key_id=None, local=False):
+def getDynamoDBConnection(
+    endpoint_url=None,
+    secret_access_key=None,
+    access_key_id=None,
+    region=None):
 
-    if local:
-        db = boto3.resource('dynamodb',
-            endpoint_url=endpoint_url
-        )
+    print(secret_access_key, access_key_id, region)
+
+    db = boto3.resource('dynamodb',
+        endpoint_url=endpoint_url,
+        aws_secret_access_key=secret_access_key,
+        aws_access_key_id=access_key_id,
+        region_name=region
+    )
 
     return db
 

@@ -5,14 +5,17 @@ services:
     ports:
      - "80:5000"
     environment:
+      - APP_SETTINGS=config.dev
+      - AWS_ACCESS_KEY=accessKey1
+      - AWS_SECRET_KEY=verySecretKey1
+      - AWS_REGION=eu-central-1
       - S3_BUCKET=images
       - S3_ENDPOINT=http://s3server:8000
-      - S3_ACCESS_KEY=AccessKey1
-      - S3_SECRET_KEY=verySecretKey1
-      - AWS_DEFAULT_REGION=eu-central-1
       - DYNAMODB_ENDPOINT=http://dynamodb:8000
-      - MODE=local
     links:
+      - dynamodb
+      - s3server
+    depends_on:
       - dynamodb
       - s3server
   dynamodb:
@@ -21,14 +24,16 @@ services:
      - "8000:8000"
   s3server:
     image: scality/s3server
+    environment:
+      - SCALITY_ACCESS_KEY_ID=accessKey1
+      - SCALITY_SECRET_ACCESS_KEY=verySecretKey1
     ports:
      - "8008:8000"
   aws-cli:
     image: mesosphere/aws-cli
     environment:
-      - AWS_ACCESS_KEY_ID=AccessKey1
+      - AWS_ACCESS_KEY_ID=accessKey1
       - AWS_SECRET_ACCESS_KEY=verySecretKey1
-      - AWS_DEFAULT_REGION=eu-central-1
     depends_on:
       - s3server
     command: s3 mb --endpoint-url=http://s3server:8000 s3://images
