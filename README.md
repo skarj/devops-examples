@@ -15,11 +15,14 @@
 
     python ./app.py
 
-or
+## Starting local test environment
 
     pip install docker-compose
     docker-compose up -d
 
+## Starting prod environment
+
+    TODO
 
 ## List all images
 
