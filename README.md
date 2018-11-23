@@ -46,10 +46,6 @@
 
 ## S3 bucket check
 
-See all buckets:
-
-    aws s3 ls --endpoint-url=http://localhost:8008
-
 Create bucket:
 
     aws s3 mb --endpoint-url=http://localhost:8008 s3://images
