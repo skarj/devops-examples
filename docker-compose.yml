@@ -33,22 +33,16 @@ services:
     volumes:
       - ./s3config.json:/usr/src/app/config.json:ro
   aws-cli:
-    image: garland/aws-cli-docker
+    image: mesosphere/aws-cli
     environment:
       - AWS_ACCESS_KEY_ID=accessKey1
       - AWS_SECRET_ACCESS_KEY=verySecretKey1
       - AWS_DEFAULT_REGION=eu-central-1
-    depends_on:
-      - s3server
-    command: >
-      /bin/sh -c "
-        aws s3api create-bucket \
-          --bucket images \
-          --acl public-read \
-          --endpoint http://s3server:8000;
-      "
     links:
       - s3server
+    depends_on:
+      - s3server
+    command: s3api create-bucket --bucket images --acl public-read --endpoint http://s3server:8000
 
 volumes:
   s3config.json:
