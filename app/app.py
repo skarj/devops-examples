@@ -40,11 +40,12 @@ class Image(Resource):
         image_name = json_data['name']
         image_url = json_data['url']
         s3_bucket = app.config["S3_BUCKET"]
-        s3_image_url = app.config["S3_ENDPOINT"] + s3_bucket
+        s3_endpoint = app.config["S3_ENDPOINT"]
 
         stream = self.fetcher.get_url_stream(image_url)
         image_id = self.fetcher.upload_object(s3_bucket, stream)
 
+        s3_image_url = '{}/{}/{}'.format(s3_endpoint, s3_bucket, image_id)
         self.dynamodb.addImage(image_id, image_name, image_url, s3_image_url)
 
         return jsonify(
