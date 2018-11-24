@@ -1,10 +1,10 @@
 # S3 Image Uploader
 ## Starting dev environment
 
-    python -m virtualenv ~/Projects/skaarj/virtualenv
-    source ~/Projects/skaarj/virtualenv/bin/activate
-    pip install -r requirements.txt
-    pip install docker-compose
+    python3.5 -m venv flask
+    source flask/bin/activate
+    pip3.5 install -r requirements.txt
+    pip3.5 install docker-compose
     docker-compose up -d dynamodb s3server aws-cli
 
     export APP_SETTINGS="config.dev"
@@ -13,7 +13,7 @@
     export AWS_REGION="eu-central-1"
     export S3_BUCKET="images"
 
-    python ./app.py
+    python3.5 ./app.py
 
 ## Starting local test environment
 
