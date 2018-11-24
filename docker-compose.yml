@@ -29,7 +29,9 @@ services:
       - SCALITY_ACCESS_KEY_ID=accessKey1
       - SCALITY_SECRET_ACCESS_KEY=verySecretKey1
     ports:
-     - "8008:8000"
+      - "8008:8000"
+    volumes:
+      - ./s3config.json:/usr/src/app/config.json:ro
   aws-cli:
     image: garland/aws-cli-docker
     environment:
@@ -47,3 +49,6 @@ services:
       "
     links:
       - s3server
+
+volumes:
+  s3config.json:
