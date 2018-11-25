@@ -1,0 +1,6 @@
+namespace: imagefetcher-prod
+region: eu-central-1
+
+parameters:
+  BucketRegion: ${region}
+

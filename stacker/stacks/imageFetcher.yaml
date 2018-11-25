@@ -1,0 +1,9 @@
+
+stacks:
+
+  - name: imagefetcher
+    class_path: blueprints.services.imagefetcher.Imagefetcher
+    locked: false
+    enabled: true
+#    variables:
+
