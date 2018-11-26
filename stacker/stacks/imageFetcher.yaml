@@ -1,9 +1,9 @@
 sys_path: .
-#stacker_bucket: bucket
+stacker_bucket: ${namespace}-stacker
 
 stacks:
   - name: imagefetcher
     enabled: true
     class_path: blueprints.imagefetcher.Imagefetcher
     variables:
-      Namespace: devops-challenge
+      Namespace: ${namespace}

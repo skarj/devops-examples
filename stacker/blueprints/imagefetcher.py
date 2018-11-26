@@ -1,12 +1,12 @@
 # https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html
 
 from stacker.blueprints.base import Blueprint
-from troposphere import Output, Ref, Template
+from troposphere import Output, Ref, Template, AccountId, Join
 from troposphere.s3 import Bucket
 from troposphere.ecr import Repository
-from awacs.aws import Allow, Policy, AWSPrincipal, Statement
+from awacs.aws import Allow, Policy, AWSPrincipal, Statement, Principal
 import awacs.ecr as ecr
-import awacs.iam as iam
+
 
 class Imagefetcher(Blueprint):
     """
@@ -29,6 +29,7 @@ class Imagefetcher(Blueprint):
         basename = "{}Images".format(namespace).replace("-", "")
 
         images_bucket = self.create_images_bucket(basename)
+        self.enable_ecr('imagefetcher')
 
         t.add_output(Output(
             "{}Bucket".format(basename),
@@ -46,22 +47,21 @@ class Imagefetcher(Blueprint):
         return bucket
 
 
-    def allow_ecr(self, basename):
+    def enable_ecr(self, name):
         t = self.template
 
         t.add_resource(
             Repository(
-                'MyRepository',
-                RepositoryName='test-repository',
+                "{}Registry".format(name),
+                RepositoryName=name,
                 RepositoryPolicyText=Policy(
                     Version='2008-10-17',
                     Statement=[
                         Statement(
                             Sid='AllowPushPull',
                             Effect=Allow,
-                            Principal=AWSPrincipal([
-                                iam.ARN(account='123456789012', resource='user/Bob')
-                            ]),
+                            # TODO: fix this
+                            Principal=Principal("AWS", Join("", ["arn:aws:iam::", AccountId, ":user/stacker"])),
                             Action=[
                                 ecr.GetDownloadUrlForLayer,
                                 ecr.BatchGetImage,
@@ -70,16 +70,6 @@ class Imagefetcher(Blueprint):
                                 ecr.InitiateLayerUpload,
                                 ecr.UploadLayerPart,
                                 ecr.CompleteLayerUpload,
-                            ],
-                        ),
-                        Statement(
-                            Sid='AllowCreate',
-                            Effect=Allow,
-                            Principal=AWSPrincipal([
-                                iam.ARN(account='123456789012', resource='user/Alice'),
-                            ]),
-                            Action=[
-                                ecr.CreateRepository,
                             ],
                         ),
                     ]

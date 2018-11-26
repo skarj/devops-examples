@@ -1,4 +1,4 @@
-namespace: devops-challenge
+namespace: imagefetcher
 region: us-east-1
 
 parameters:
