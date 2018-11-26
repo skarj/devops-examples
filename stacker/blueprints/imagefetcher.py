@@ -1,5 +1,3 @@
-# https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html
-
 from stacker.blueprints.base import Blueprint
 from troposphere import Output, Ref, Template, AccountId, Join
 from troposphere.s3 import Bucket
@@ -29,6 +27,7 @@ class Imagefetcher(Blueprint):
         basename = "{}Images".format(namespace).replace("-", "")
 
         images_bucket = self.create_images_bucket(basename)
+        
         self.enable_ecr('imagefetcher')
 
         t.add_output(Output(
@@ -48,6 +47,7 @@ class Imagefetcher(Blueprint):
 
 
     def enable_ecr(self, name):
+    # https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html
         t = self.template
 
         t.add_resource(
