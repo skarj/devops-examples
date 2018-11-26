@@ -1,9 +1,9 @@
+sys_path: .
+#stacker_bucket: bucket
 
 stacks:
-
   - name: imagefetcher
-    class_path: blueprints.services.imagefetcher.Imagefetcher
-    locked: false
     enabled: true
-#    variables:
-
+    class_path: blueprints.imagefetcher.Imagefetcher
+    variables:
+      Namespace: devops-challenge
