@@ -133,7 +133,7 @@ class Imagefetcher(Blueprint):
 
         environment = Environment(
             ComputeType='BUILD_GENERAL1_SMALL',
-            Image='aws/codebuild/docker:17.09.',
+            Image='aws/codebuild/docker:17.09.0',
             Type='LINUX_CONTAINER',
             EnvironmentVariables=[
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': Region},
