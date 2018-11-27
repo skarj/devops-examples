@@ -5,7 +5,7 @@ from troposphere.iam import Role, Policy as IamPolicy
 from troposphere.ecr import Repository
 from troposphere.codebuild import Artifacts, Environment, Source, Project
 from awacs.sts import AssumeRole
-from awacs.aws import Allow, Policy, AWSPrincipal, Statement, Principal
+from awacs.aws import Allow, Policy, Statement, Principal
 import awacs.ecr as ecr
 import awacs.logs as logs
 
@@ -27,15 +27,14 @@ class Imagefetcher(Blueprint):
         t.add_description("Stack for imagefetcher infrastructure")
 
         variables = self.get_variables()
-
         namespace = variables["Namespace"]
-        basename = "{}Images".format(namespace).replace("-", "")
+
+        basename = namespace.replace("-", "")
 
         images_bucket = self.create_images_bucket(basename)
-
-        self.create_codebuild_role('imagefetcher')
-        self.create_container_registry('imagefetcher')
-        self.create_codebuild_project('imagefetcher')
+        self.create_codebuild_role(basename)
+        self.create_container_registry(basename)
+        self.create_codebuild_project(basename)
 
         t.add_output(Output(
             "{}Bucket".format(basename),
@@ -47,18 +46,18 @@ class Imagefetcher(Blueprint):
         t = self.template
 
         bucket = t.add_resource(Bucket(
-            "{}Bucket".format(basename)
+            "{}ImagesBucket".format(basename)
         ))
 
         return bucket
 
 
-    def create_codebuild_role(self, name):
+    def create_codebuild_role(self, basename):
         t = self.template
 
         # Strange role name
         self.codebuild_role = t.add_resource(Role(
-            "{}Codebuild".format(name).replace("-", ""),
+            "{}Codebuild".format(basename).replace("-", ""),
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(
@@ -69,7 +68,7 @@ class Imagefetcher(Blueprint):
                 ]
             ),
             Policies=[IamPolicy(
-                PolicyName="{}Codebuild".format(name).replace("-", ""),
+                PolicyName="{}Codebuild".format(basename).replace("-", ""),
                 PolicyDocument={
                     "Version": "2012-10-17",
                     "Statement": [
@@ -87,6 +86,20 @@ class Imagefetcher(Blueprint):
                                           ":log-group:/aws/codebuild/", "imagefetcher:*"])
                             ],
                             "Effect": "Allow"
+                        },
+                        {
+                            "Action": [
+                                "ecr:GetAuthorizationToken"
+                            ],
+                            "Resource": ["*"],
+                            "Effect": "Allow"
+                        },
+                        {
+                            "Action": [
+                                "ecr:InitiateLayerUpload"
+                            ],
+                            "Resource": ["*"],
+                            "Effect": "Allow"
                         }
                     ]
                 }
@@ -94,13 +107,13 @@ class Imagefetcher(Blueprint):
         ))
 
 
-    def create_container_registry(self, name):
+    def create_container_registry(self, basename):
         t = self.template
 
         t.add_resource(
             Repository(
-                "{}Registry".format(name),
-                RepositoryName=name,
+                "{}Registry".format(basename),
+                RepositoryName=basename,
                 RepositoryPolicyText=Policy(
                     Version='2008-10-17',
                     Statement=[
@@ -124,7 +137,7 @@ class Imagefetcher(Blueprint):
         )
 
 
-    def create_codebuild_project(self, name):
+    def create_codebuild_project(self, basename):
         t = self.template
 
         t.add_version('2010-09-09')
@@ -138,7 +151,7 @@ class Imagefetcher(Blueprint):
             EnvironmentVariables=[
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': Region},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-                {'Name': 'IMAGE_REPO_NAME', 'Value': '{}Registry'.format(name)}, # Fix this
+                {'Name': 'IMAGE_REPO_NAME', 'Value': basename},
                 {'Name': 'IMAGE_TAG', 'Value': 'latest'}
             ],
         )
@@ -149,8 +162,8 @@ class Imagefetcher(Blueprint):
         )
 
         project = Project(
-            "{}Project".format(name),
-            Name=name,
+            "{}Project".format(basename),
+            Name=basename,
             Artifacts=artifacts,
             Environment=environment,
             ServiceRole=GetAtt(self.codebuild_role, "Arn"),
