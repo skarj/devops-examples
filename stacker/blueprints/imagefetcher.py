@@ -1,8 +1,10 @@
 from stacker.blueprints.base import Blueprint
-from troposphere import Output, Ref, Template, AccountId, Join
+from troposphere import Output, Ref, Template, AccountId, Join, GetAtt
 from troposphere.s3 import Bucket
+from troposphere.iam import Role
 from troposphere.ecr import Repository
 from troposphere.codebuild import Artifacts, Environment, Source, Project
+from awacs.sts import AssumeRole
 from awacs.aws import Allow, Policy, AWSPrincipal, Statement, Principal
 import awacs.ecr as ecr
 
@@ -30,8 +32,9 @@ class Imagefetcher(Blueprint):
 
         images_bucket = self.create_images_bucket(basename)
 
+        self.create_codebuild_role('imagefetcher')
         self.create_container_registry('imagefetcher')
-        self.create_cloudbuild_project('imagefetcher')
+        self.create_codebuild_project('imagefetcher')
 
         t.add_output(Output(
             "{}Bucket".format(basename),
@@ -49,10 +52,24 @@ class Imagefetcher(Blueprint):
         return bucket
 
 
+    def create_codebuild_role(self, name):
+        t = self.template
+
+        self.codebuild_role = t.add_resource(Role(
+            "{}CodebuildRole".format(name).replace("-", ""),
+            AssumeRolePolicyDocument=Policy(
+                Statement=[
+                    Statement(
+                        Effect=Allow,
+                        Action=[AssumeRole],
+                        Principal=Principal("Service", ["codebuild.amazonaws.com"])
+                    )
+                ]
+            )
+        ))
+
+
     def create_container_registry(self, name):
-        """
-        https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html
-        """
         t = self.template
 
         t.add_resource(
@@ -65,8 +82,7 @@ class Imagefetcher(Blueprint):
                         Statement(
                             Sid='AllowPushPull',
                             Effect=Allow,
-                            # TODO: fix this
-                            Principal=Principal("AWS", Join("", ["arn:aws:iam::", AccountId, ":user/stacker"])),
+                            Principal=Principal("AWS", GetAtt(self.codebuild_role, "Arn")),
                             Action=[
                                 ecr.GetDownloadUrlForLayer,
                                 ecr.BatchGetImage,
@@ -83,7 +99,7 @@ class Imagefetcher(Blueprint):
         )
 
 
-    def create_cloudbuild_project(self, name):
+    def create_codebuild_project(self, name):
         t = self.template
 
         t.add_version('2010-09-09')
@@ -94,20 +110,22 @@ class Imagefetcher(Blueprint):
             ComputeType='BUILD_GENERAL1_SMALL',
             Image='aws/codebuild/java:openjdk-8',
             Type='LINUX_CONTAINER',
-            EnvironmentVariables=[{'Name': 'APP_NAME', 'Value': 'demo'}],
+            EnvironmentVariables=[
+                {'Name': 'APP_NAME', 'Value': 'demo'}
+            ],
         )
 
         source = Source(
-            Location='codebuild-demo-test/0123ab9a371ebf0187b0fe5614fbb72c',
-            Type='S3'
+            Location='https://github.com/skarj/devops-callenge.git',
+            Type='GITHUB'
         )
 
         project = Project(
-            "DemoProject",
+            "{}Project".format(name),
+            Name=name,
             Artifacts=artifacts,
             Environment=environment,
-            Name='DemoProject',
-            ServiceRole='arn:aws:iam::0123456789:role/codebuild-role',
+            ServiceRole=GetAtt(self.codebuild_role, "Arn"),
             Source=source,
         )
 
