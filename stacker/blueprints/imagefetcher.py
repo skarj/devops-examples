@@ -1,12 +1,13 @@
 from stacker.blueprints.base import Blueprint
-from troposphere import Output, Ref, Template, AccountId, Join, GetAtt
+from troposphere import Output, Ref, Template, AccountId, Region, Join, GetAtt
 from troposphere.s3 import Bucket
-from troposphere.iam import Role
+from troposphere.iam import Role, Policy as IamPolicy
 from troposphere.ecr import Repository
 from troposphere.codebuild import Artifacts, Environment, Source, Project
 from awacs.sts import AssumeRole
 from awacs.aws import Allow, Policy, AWSPrincipal, Statement, Principal
 import awacs.ecr as ecr
+import awacs.logs as logs
 
 
 class Imagefetcher(Blueprint):
@@ -55,8 +56,9 @@ class Imagefetcher(Blueprint):
     def create_codebuild_role(self, name):
         t = self.template
 
+        # Strange role name
         self.codebuild_role = t.add_resource(Role(
-            "{}CodebuildRole".format(name).replace("-", ""),
+            "{}Codebuild".format(name).replace("-", ""),
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(
@@ -65,7 +67,30 @@ class Imagefetcher(Blueprint):
                         Principal=Principal("Service", ["codebuild.amazonaws.com"])
                     )
                 ]
-            )
+            ),
+            Policies=[IamPolicy(
+                PolicyName="{}Codebuild".format(name).replace("-", ""),
+                PolicyDocument={
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": [
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents",
+                            ],
+                            "Resource": [
+                                # Fix this
+                                Join("", ["arn:aws:logs:", Region, ":", AccountId,
+                                          ":log-group:/aws/codebuild/", "imagefetcher"]),
+                                Join("", ["arn:aws:logs:", Region, ":", AccountId,
+                                          ":log-group:/aws/codebuild/", "imagefetcher:*"])
+                            ],
+                            "Effect": "Allow"
+                        }
+                    ]
+                }
+            )]
         ))
 
 
@@ -108,10 +133,13 @@ class Imagefetcher(Blueprint):
 
         environment = Environment(
             ComputeType='BUILD_GENERAL1_SMALL',
-            Image='aws/codebuild/java:openjdk-8',
+            Image='aws/codebuild/docker:17.09.',
             Type='LINUX_CONTAINER',
             EnvironmentVariables=[
-                {'Name': 'APP_NAME', 'Value': 'demo'}
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': Region},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_REPO_NAME', 'Value': '{}Registry'.format(name)}, # Fix this
+                {'Name': 'IMAGE_TAG', 'Value': 'latest'}
             ],
         )
 
