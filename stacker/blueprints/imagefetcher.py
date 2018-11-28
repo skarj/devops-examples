@@ -18,6 +18,10 @@ class Imagefetcher(Blueprint):
         "Namespace": {
             "type": str,
             "description": ""
+        },
+        "GithubRepo": {
+            "type": str,
+            "description": "Github repository URL"
         }
     }
 
@@ -28,13 +32,14 @@ class Imagefetcher(Blueprint):
 
         variables = self.get_variables()
         namespace = variables["Namespace"]
+        github_repo = variables["GithubRepo"]
 
         basename = namespace.replace("-", "")
 
         images_bucket = self.create_images_bucket(basename)
         self.create_codebuild_role(basename)
         self.create_container_registry(basename)
-        self.create_codebuild_project(basename)
+        self.create_codebuild_project(basename, github_repo)
 
         t.add_output(Output(
             "{}Bucket".format(basename),
@@ -55,9 +60,8 @@ class Imagefetcher(Blueprint):
     def create_codebuild_role(self, basename):
         t = self.template
 
-        # Strange role name
         self.codebuild_role = t.add_resource(Role(
-            "{}Codebuild".format(basename).replace("-", ""),
+            "{}Codebuild".format(basename),
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(
@@ -68,7 +72,7 @@ class Imagefetcher(Blueprint):
                 ]
             ),
             Policies=[IamPolicy(
-                PolicyName="{}Codebuild".format(basename).replace("-", ""),
+                PolicyName="{}Codebuild".format(basename),
                 PolicyDocument={
                     "Version": "2012-10-17",
                     "Statement": [
@@ -79,11 +83,10 @@ class Imagefetcher(Blueprint):
                                 "logs:PutLogEvents",
                             ],
                             "Resource": [
-                                # Fix this
                                 Join("", ["arn:aws:logs:", Region, ":", AccountId,
-                                          ":log-group:/aws/codebuild/", "imagefetcher"]),
+                                          ":log-group:/aws/codebuild/", basename]),
                                 Join("", ["arn:aws:logs:", Region, ":", AccountId,
-                                          ":log-group:/aws/codebuild/", "imagefetcher:*"])
+                                          ":log-group:/aws/codebuild/", basename, ":*"])
                             ],
                             "Effect": "Allow"
                         },
@@ -137,7 +140,7 @@ class Imagefetcher(Blueprint):
         )
 
 
-    def create_codebuild_project(self, basename):
+    def create_codebuild_project(self, basename, github_repo):
         t = self.template
 
         t.add_version('2010-09-09')
@@ -157,7 +160,7 @@ class Imagefetcher(Blueprint):
         )
 
         source = Source(
-            Location='https://github.com/skarj/devops-callenge.git',
+            Location=github_repo,
             Type='GITHUB'
         )
 

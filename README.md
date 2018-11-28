@@ -1,11 +1,23 @@
-# S3 Image Uploader
-## Starting dev environment
+# Image Fetcher
 
-    python3.5 -m venv flask
+## Starting test environments
+### Starting local dev environment
+
+Create virtual environment
+
+    python -m venv flask
     source flask/bin/activate
-    pip3.5 install -r requirements.txt
-    pip3.5 install docker-compose
+
+Install dependencies
+
+    pip install -r requirements.txt
+    pip install docker-compose
+
+Start S3 and Dynamodb local servers
+
     docker-compose up -d dynamodb s3server aws-cli
+
+Set environment variables
 
     export APP_SETTINGS="config.dev"
     export AWS_ACCESS_KEY="accessKey1"
@@ -13,28 +25,41 @@
     export AWS_REGION="eu-central-1"
     export S3_BUCKET="images"
 
-    python3.5 ./app.py
+Start application
 
-## Starting local test environment
+    python ./app.py
+
+Create bucket:
+
+    aws s3 mb --endpoint-url=http://localhost:8008 s3://images
+
+### Starting local test environment
+
+Install docker-compose
 
     pip install docker-compose
+
+Start service
+
     docker-compose up -d
 
-## Starting prod environment
+## Starting production environment
+### Creating AWS infrastructure
 
-    TODO
+Create virtual environment
 
-## List all images
+    python -m venv stacker
+    source stacker/bin/activate
 
-    curl -X GET "localhost:5000/api/v1/images"
+Install dependencies
+
+    cd stacker
+    pip install -r requirements.txt
+    stacker build envs/production.yaml stacks/imageFetcher.yaml --recreate-failed
 
 
-## Request a single image
-
-    curl -X GET "localhost:5000/api/v1/images/name/test1"
-
-
-## Request image uploading
+## Testing application
+### Request image uploading
 
     curl -X POST "localhost:5000/api/v1/images" -H 'Content-Type: application/json' -d'
     {
@@ -43,21 +68,20 @@
     }
     '
 
+### Request a single image
 
-## S3 bucket check
+    curl -X GET "localhost:5000/api/v1/images/name/test1"
 
-Create bucket:
+### List all images
 
-    aws s3 mb --endpoint-url=http://localhost:8008 s3://images
+    curl -X GET "localhost:5000/api/v1/images"
 
-List bucket
+### Check S3 bucket
 
     aws s3api list-objects --endpoint-url=http://localhost:8008 --bucket images
 
 
 ## Documents
-  * https://technologyconversations.com/2014/08/12/rest-api-with-json/
-  * https://codeburst.io/this-is-how-easy-it-is-to-create-a-rest-api-8a25122ab1f3
+  * https://github.com/scality/cloudserver/blob/master/docs/GETTING_STARTED.rst
   * https://boto3.amazonaws.com/v1/documentation/api/latest/guide/dynamodb.html
   * https://docs.aws.amazon.com/en_us/amazondynamodb/latest/developerguide/GettingStarted.Python.03.
-  * https://github.com/scality/cloudserver/blob/master/docs/GETTING_STARTED.rst

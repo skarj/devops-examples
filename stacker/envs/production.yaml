@@ -1,4 +1,2 @@
 namespace: imagefetcher
-region: us-east-1
-
-parameters:
+GithubRepo: "https://github.com/skarj/devops-callenge.git"
