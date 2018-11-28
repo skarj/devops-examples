@@ -1,4 +1,7 @@
 # Image Fetcher
+This repository contains some usefull examples:
+  * simple falsk application that works with AWS Dynamodb and S3 services
+  * troposphere blueprint for aws ci-cd configuration using stacker
 
 ## Starting test environments
 ### Starting local dev environment
@@ -13,7 +16,7 @@ Install dependencies
     pip install -r requirements.txt
     pip install docker-compose
 
-Start S3 and Dynamodb local servers
+Start S3 and Dynamodb local servers, create bucket for images
 
     docker-compose up -d dynamodb s3server aws-cli
 
@@ -28,10 +31,6 @@ Set environment variables
 Start application
 
     python ./app.py
-
-Create bucket:
-
-    aws s3 mb --endpoint-url=http://localhost:8008 s3://images
 
 ### Starting local test environment
 
@@ -82,6 +81,9 @@ Install dependencies
 
 
 ## Documents
+  * https://flask-restful.readthedocs.io/en/latest/
   * https://github.com/scality/cloudserver/blob/master/docs/GETTING_STARTED.rst
+  * https://hub.docker.com/r/amazon/dynamodb-local/
   * https://boto3.amazonaws.com/v1/documentation/api/latest/guide/dynamodb.html
-  * https://docs.aws.amazon.com/en_us/amazondynamodb/latest/developerguide/GettingStarted.Python.03.
+  * https://stacker.readthedocs.io/en/latest/
+  * https://github.com/cloudtools/troposphere
