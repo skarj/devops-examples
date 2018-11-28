@@ -54,7 +54,7 @@ Install dependencies
 
     cd stacker
     pip install -r requirements.txt
-    stacker build envs/production.yaml stacks/imageFetcher.yaml --recreate-failed
+    stacker build envs/production.yaml stacks/imageFetcher.yaml --recreate-failed --tail
 
 
 ## Testing application
@@ -79,6 +79,9 @@ Install dependencies
 
     aws s3api list-objects --endpoint-url=http://localhost:8008 --bucket images
 
+### Destroy AWS infrastructure
+
+    stacker destroy envs/production.yaml stacks/imageFetcher.yaml --force --tail
 
 ## Documents
   * https://flask-restful.readthedocs.io/en/latest/

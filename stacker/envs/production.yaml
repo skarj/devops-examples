@@ -1,2 +1,4 @@
+# https://stacker.readthedocs.io/en/latest/environments.html
 namespace: imagefetcher
-GithubRepo: "https://github.com/skarj/devops-callenge.git"
+
+imagefetcherGithubRepo: "https://github.com/skarj/devops-callenge.git"

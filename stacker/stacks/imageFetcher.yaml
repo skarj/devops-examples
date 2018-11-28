@@ -6,4 +6,9 @@ stacks:
     class_path: blueprints.imagefetcher.Imagefetcher
     variables:
       Namespace: ${namespace}
-      GithubRepo: ${GithubRepo}
+      GithubRepo: ${imagefetcherGithubRepo}
+
+  - name: ekscluster
+    class_path: blueprints.eks_cluster.EKSCluster
+    variables:
+      Namespace: ${namespace}

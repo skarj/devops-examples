@@ -12,7 +12,7 @@ import awacs.logs as logs
 
 class Imagefetcher(Blueprint):
     """
-    Blueprint for imagefetcher infrastructure.
+    Imagefetcher resources
     """
     VARIABLES = {
         "Namespace": {
@@ -71,42 +71,44 @@ class Imagefetcher(Blueprint):
                     )
                 ]
             ),
-            Policies=[IamPolicy(
-                PolicyName="{}Codebuild".format(basename),
-                PolicyDocument={
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Action": [
-                                "logs:CreateLogGroup",
-                                "logs:CreateLogStream",
-                                "logs:PutLogEvents",
-                            ],
-                            "Resource": [
-                                Join("", ["arn:aws:logs:", Region, ":", AccountId,
-                                          ":log-group:/aws/codebuild/", basename]),
-                                Join("", ["arn:aws:logs:", Region, ":", AccountId,
-                                          ":log-group:/aws/codebuild/", basename, ":*"])
-                            ],
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "ecr:GetAuthorizationToken"
-                            ],
-                            "Resource": ["*"],
-                            "Effect": "Allow"
-                        },
-                        {
-                            "Action": [
-                                "ecr:InitiateLayerUpload"
-                            ],
-                            "Resource": ["*"],
-                            "Effect": "Allow"
-                        }
-                    ]
-                }
-            )]
+            Policies=[
+                IamPolicy(
+                    PolicyName="{}Codebuild".format(basename),
+                    PolicyDocument={
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Action": [
+                                    "logs:CreateLogGroup",
+                                    "logs:CreateLogStream",
+                                    "logs:PutLogEvents",
+                                ],
+                                "Resource": [
+                                    Join("", ["arn:aws:logs:", Region, ":", AccountId,
+                                            ":log-group:/aws/codebuild/", basename]),
+                                    Join("", ["arn:aws:logs:", Region, ":", AccountId,
+                                            ":log-group:/aws/codebuild/", basename, ":*"])
+                                ],
+                                "Effect": "Allow"
+                            },
+                            {
+                                "Action": [
+                                    "ecr:GetAuthorizationToken"
+                                ],
+                                "Resource": ["*"],
+                                "Effect": "Allow"
+                            },
+                            {
+                                "Action": [
+                                    "ecr:InitiateLayerUpload"
+                                ],
+                                "Resource": ["*"],
+                                "Effect": "Allow"
+                            }
+                        ]
+                    }
+                )
+            ]
         ))
 
 
