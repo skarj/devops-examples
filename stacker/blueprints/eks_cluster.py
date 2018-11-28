@@ -1,12 +1,10 @@
 from stacker.blueprints.base import Blueprint
 from troposphere import Output, Ref, Template, AccountId, Region, Join, GetAtt, Tags
 from troposphere.iam import Role, Policy as IamPolicy
-from troposphere.ec2 import SecurityGroupRule, SecurityGroup, \
-    VPC, Subnet, InternetGateway, RouteTable, SubnetRouteTableAssociation
+from troposphere.ec2 import SecurityGroupRule, SecurityGroup
 from awacs.sts import AssumeRole
 from awacs.aws import Allow, Policy, Statement, Principal
 
-# https://github.com/skarj/terraform-aws-eks/blob/master/vpc.tf
 
 class EKSCluster(Blueprint):
     """
@@ -37,75 +35,7 @@ class EKSCluster(Blueprint):
         clustername = namespace.replace("-", "")
 
         self.create_eks_role()
-        self.create_vpc(ref_stack_id)
         self.create_eks_security_group(clustername)
-
-
-    def create_vpc(self, ref_stack_id):
-        t = self.template
-
-        self.VPC = t.add_resource(
-            VPC(
-                'VPC',
-                CidrBlock='10.0.0.0/16',
-                Tags=Tags(
-                    Application=ref_stack_id # tags
-                )
-            )
-        )
-
-
-    def create_subnet(self, ref_stack_id):  # Count 2
-        t = self.template
-
-        self.subnet = t.add_resource(
-            Subnet(
-                'Subnet',
-                CidrBlock='10.0.0.0/24',
-                VpcId=Ref(self.VPC),
-                Tags=Tags(
-                    Application=ref_stack_id # tags
-                )
-            )
-        )
-
-
-    def create_internetGateway(self, ref_stack_id):
-        t = self.template
-        self.internetGateway = t.add_resource(
-            InternetGateway(
-                'InternetGateway',
-                Tags=Tags(
-                    Application=ref_stack_id # tags
-                )
-            )
-        )
-
-
-    def create_route_table(self, ref_stack_id):
-        t = self.template
-
-        self.routeTable = t.add_resource(
-            RouteTable(
-                'RouteTable',
-                VpcId=Ref(VPC),
-                Tags=Tags(
-                    Application=ref_stack_id
-                )
-            )
-        )
-
-
-    def create_route_table_association(self, ref_stack_id):  # count
-        t = self.template
-
-        self.subnetRouteTableAssociation = t.add_resource(
-            SubnetRouteTableAssociation(
-                'SubnetRouteTableAssociation',
-                SubnetId=Ref(self.subnet),
-                RouteTableId=Ref(self.routeTable),
-            )
-        )
 
 
     def create_eks_security_group(self, clustername):
