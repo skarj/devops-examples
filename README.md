@@ -1,7 +1,7 @@
 # Image Fetcher
 This repository contains some usefull examples:
   * simple falsk application that works with AWS Dynamodb and S3 services
-  * troposphere blueprint for aws ci-cd configuration using stacker
+  * troposphere blueprint/stacker configs for AWS infrastructure as code
 
 ## Starting test environments
 ### Starting local dev environment
