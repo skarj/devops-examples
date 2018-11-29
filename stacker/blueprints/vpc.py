@@ -4,8 +4,6 @@ from troposphere import Output, Ref, Template, AccountId, Region, Join, GetAtt, 
 from troposphere.iam import Role, Policy as IamPolicy
 from troposphere.ec2 import SecurityGroupRule, SecurityGroup, \
     VPC, Subnet, InternetGateway, VPCGatewayAttachment, RouteTable, Route, SubnetRouteTableAssociation
-from awacs.sts import AssumeRole
-from awacs.aws import Allow, Policy, Statement, Principal
 
 # https://github.com/skarj/terraform-aws-eks/blob/master/vpc.tf
 
@@ -41,9 +39,7 @@ class EKSVPC(Blueprint):
         self.create_vpc(clustername)
         self.create_subnet(clustername)
         self.create_internet_gateway(clustername)
-        self.create_gateway_attachment()
         self.create_route_table(clustername)
-        self.add_route()
 
 
     def create_vpc(self, clustername):
@@ -87,11 +83,7 @@ class EKSVPC(Blueprint):
             )
         )
 
-
-    def create_gateway_attachment(self):
-        t = self.template
-
-        self.gatewayAttachment = t.add_resource(
+        t.add_resource(
             VPCGatewayAttachment(
                 'AttachGateway',
                 VpcId=Ref(self.VPC),
@@ -103,7 +95,7 @@ class EKSVPC(Blueprint):
     def create_route_table(self, clustername):
         t = self.template
 
-        self.routeTable = t.add_resource(
+        routeTable = t.add_resource(
             RouteTable(
                 '{}RouteTable'.format(clustername),
                 VpcId=Ref(self.VPC),
@@ -113,28 +105,20 @@ class EKSVPC(Blueprint):
             )
         )
 
-
-    def add_route(self):
-        t = self.template
-
-        self.route = t.add_resource(
+        t.add_resource(
             Route(
                 'Route',
                 DependsOn='AttachGateway',
-                GatewayId=Ref('InternetGateway'),
+                GatewayId=Ref(self.internetGateway),
                 DestinationCidrBlock='0.0.0.0/0',
-                RouteTableId=Ref(self.routeTable),
+                RouteTableId=Ref(routeTable),
             )
         )
 
-
-    def create_route_table_association(self):  # count
-        t = self.template
-
-        self.subnetRouteTableAssociation = t.add_resource(
+        t.add_resource(
             SubnetRouteTableAssociation(
                 'SubnetRouteTableAssociation',
                 SubnetId=Ref(self.subnet),
-                RouteTableId=Ref(self.routeTable),
+                RouteTableId=Ref(routeTable),
             )
         )
