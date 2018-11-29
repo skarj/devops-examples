@@ -3,10 +3,9 @@ stacker_bucket: ${namespace}-stacker
 
 stacks:
   - name: vpc
-    class_path: blueprints.vpc.EKSVPC
+    class_path: blueprints.eks.vpc.EKSVPC
     variables:
       Namespace: ${namespace}
-      BaseCidr: "10.37"
 
   # - name: imagefetcher
   #   class_path: blueprints.imagefetcher.Imagefetcher
