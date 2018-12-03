@@ -1,9 +1,17 @@
 from stacker.blueprints.base import Blueprint
 from stacker.blueprints.variables.types import CFNString
-from troposphere import Output, Ref, Template, Join, GetAtt, Tags
-from troposphere.ec2 import \
-    VPC, Subnet, InternetGateway, VPCGatewayAttachment, \
-    RouteTable, Route, SubnetRouteTableAssociation, EIP, NatGateway
+
+from troposphere import (
+    Output, Ref, GetAtt,
+    Template, Join, Tags
+)
+
+from troposphere.ec2 import (
+    VPC, Subnet, InternetGateway,
+    VPCGatewayAttachment, RouteTable,
+    Route, SubnetRouteTableAssociation,
+    EIP, NatGateway
+)
 
 
 class EKSVPC(Blueprint):
@@ -15,10 +23,6 @@ class EKSVPC(Blueprint):
      * Route Table
     """
     VARIABLES = {
-        "Namespace": {
-            "type": str,
-            "description": ""
-        },
         "VPCCIDR": {
             "type": CFNString,
             "default": "10.0.0.0/16",
@@ -39,20 +43,17 @@ class EKSVPC(Blueprint):
 
     def create_template(self):
         t = self.template
+
         t.add_description("Stack for EKS VPC")
 
         variables = self.get_variables()
-        namespace = variables["Namespace"]
         vpc_cidr = variables["VPCCIDR"].ref
         private_subnet_cidr = variables["PrivateSubnetCIDR"].ref
         public_subnet_cidr = variables["PublicSubnetCIDR"].ref
 
-        clustername = "{}Eks".format(namespace).replace("-", "")
+        clustername = "{}Eks".format(self.context.namespace).replace("-", "")
 
-        self.create_vpc(
-            clustername,
-            vpc_cidr
-        )
+        self.create_vpc(clustername, vpc_cidr)
 
         self.create_subnets(
             clustername,
@@ -80,9 +81,10 @@ class EKSVPC(Blueprint):
                 EnableDnsSupport=False,
                 EnableDnsHostnames=False,
                 CidrBlock=vpc_cidr,
-                Tags=Tags(
-                    Name=clustername # tags
-                )
+                Tags=Tags({
+                    "Name": clustername,
+                    "kubernetes.io/cluster/{}".format(clustername): "shared"
+                })
             )
         )
 
@@ -138,10 +140,11 @@ class EKSVPC(Blueprint):
                 '{}PrivateSubnet'.format(clustername),
                 CidrBlock=private_subnet,
                 VpcId=Ref(self.VPC),
-                Tags=Tags(
-                    Name="{} private subnet".format(clustername),
-                    Network="Private"
-                )
+                Tags=Tags({
+                    "Name": "{} private subnet".format(clustername),
+                    "Network": "Private",
+                    "kubernetes.io/cluster/{}".format(clustername): "shared"
+                })
             )
         )
 
@@ -151,10 +154,11 @@ class EKSVPC(Blueprint):
                 CidrBlock=public_subnet,
                 VpcId=Ref(self.VPC),
                 MapPublicIpOnLaunch=True,
-                Tags=Tags(
-                    Name="{} public subnet".format(clustername),
-                    Network="Public"
-                )
+                Tags=Tags({
+                    "Name": "{} public subnet".format(clustername),
+                    "Network": "Public",
+                    "kubernetes.io/cluster/{}".format(clustername): "shared"
+                })
             )
         )
 
@@ -166,11 +170,11 @@ class EKSVPC(Blueprint):
             RouteTable(
                 '{}PrivateRouteTable'.format(clustername),
                 VpcId=Ref(self.VPC),
-                Tags=Tags(
-                    Name="{} private subnets".format(clustername),
-                    Network="Private",
-                    'kubernetes.io/role/internal-elb'="1"
-                )
+                Tags=Tags({
+                    "Name": "{} private subnets".format(clustername),
+                    "Network": "Private",
+                    "kubernetes.io/role/internal-elb": "1"
+                })
             )
         )
 
