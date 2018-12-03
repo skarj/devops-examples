@@ -1,7 +1,13 @@
 from stacker.blueprints.base import Blueprint
-from troposphere import Output, Ref, Template, AccountId, Region, Join, GetAtt, Tags
 from troposphere.iam import Role, Policy as IamPolicy
 from troposphere.ec2 import SecurityGroupRule, SecurityGroup
+
+from troposphere import (
+    Output, Ref, Template,
+    AccountId, Region, Join,
+    GetAtt, Tags
+)
+
 from awacs.sts import AssumeRole
 from awacs.aws import Allow, Policy, Statement, Principal
 
@@ -13,12 +19,7 @@ class EKSCluster(Blueprint):
      * EC2 Security Group to allow networking traffic with EKS cluster
      * EKS Cluster
     """
-    VARIABLES = {
-        "Namespace": {
-            "type": str,
-            "description": ""
-        },
-    }
+    VARIABLES = {}
 
 
     def create_template(self):
@@ -26,13 +27,12 @@ class EKSCluster(Blueprint):
         t.add_description("Stack for EKS infrastructure")
 
         variables = self.get_variables()
-        namespace = variables["Namespace"]
 
         ref_stack_id = Ref('AWS::StackId')
         ref_region = Ref('AWS::Region')
         ref_stack_name = Ref('AWS::StackName')
 
-        clustername = namespace.replace("-", "")
+        clustername = self.context.namespace.replace("-", "")
 
         self.create_eks_role()
         self.create_eks_security_group(clustername)

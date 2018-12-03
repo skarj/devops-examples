@@ -1,9 +1,17 @@
 from stacker.blueprints.base import Blueprint
-from troposphere import Output, Ref, Template, AccountId, Region, Join, GetAtt
 from troposphere.s3 import Bucket
 from troposphere.iam import Role, Policy as IamPolicy
 from troposphere.ecr import Repository
-from troposphere.codebuild import Artifacts, Environment, Source, Project
+
+from troposphere.codebuild import (
+    Artifacts, Environment, Source, Project
+)
+
+from troposphere import (
+    Output, Ref, Template, AccountId
+    Region, Join, GetAtt
+)
+
 from awacs.sts import AssumeRole
 from awacs.aws import Allow, Policy, Statement, Principal
 import awacs.ecr as ecr
@@ -15,10 +23,6 @@ class Imagefetcher(Blueprint):
     Imagefetcher resources
     """
     VARIABLES = {
-        "Namespace": {
-            "type": str,
-            "description": ""
-        },
         "GithubRepo": {
             "type": str,
             "description": "Github repository URL"
@@ -31,10 +35,9 @@ class Imagefetcher(Blueprint):
         t.add_description("Stack for imagefetcher infrastructure")
 
         variables = self.get_variables()
-        namespace = variables["Namespace"]
         github_repo = variables["GithubRepo"]
 
-        basename = namespace.replace("-", "")
+        basename = self.context.namespace.replace("-", "")
 
         images_bucket = self.create_images_bucket(basename)
         self.create_codebuild_role(basename)
@@ -75,6 +78,7 @@ class Imagefetcher(Blueprint):
                 IamPolicy(
                     PolicyName="{}Codebuild".format(basename),
                     PolicyDocument={
+                        # recreate using awacs
                         "Version": "2012-10-17",
                         "Statement": [
                             {

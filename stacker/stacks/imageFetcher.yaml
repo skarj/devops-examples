@@ -4,11 +4,8 @@ stacker_bucket: ${namespace}-stacker
 stacks:
   - name: vpc
     class_path: blueprints.eks.vpc.EKSVPC
-    variables:
-      Namespace: ${namespace}
 
   # - name: imagefetcher
   #   class_path: blueprints.imagefetcher.Imagefetcher
   #   variables:
-  #     Namespace: ${namespace}
   #     GithubRepo: ${imagefetcherGithubRepo}
