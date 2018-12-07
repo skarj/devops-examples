@@ -8,7 +8,7 @@ from troposphere.codebuild import (
 )
 
 from troposphere import (
-    Output, Ref, Template, AccountId
+    Output, Ref, Template, AccountId,
     Region, Join, GetAtt
 )
 

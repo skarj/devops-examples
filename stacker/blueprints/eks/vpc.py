@@ -20,7 +20,8 @@ class EKSVPC(Blueprint):
      * VPC
      * Subnets
      * Internet Gateway
-     * Route Table
+     * NAT Gateway
+     * Route Tables
     """
     VARIABLES = {
         "VPCCIDR": {
@@ -53,29 +54,55 @@ class EKSVPC(Blueprint):
 
         clustername = "{}Eks".format(self.context.namespace).replace("-", "")
 
-        self.create_vpc(clustername, vpc_cidr)
-
-        self.create_subnets(
+        vpc, public_subnet, private_subnet = self.create_vpc(
             clustername,
-            private_subnet_cidr,
-            public_subnet_cidr
+            vpc_cidr,
+            public_subnet_cidr,
+            private_subnet_cidr
         )
 
-        self.create_internet_gateway(clustername)
-        self.create_nat_gateway(clustername)
-        self.create_route_tables(clustername)
+        nat_eip = self.create_nat_gateway(
+            clustername,
+            vpc,
+            public_subnet,
+            private_subnet
+        )
+
+        self.create_internet_gateway(
+            clustername,
+            vpc,
+            public_subnet
+        )
 
         t.add_output(
             Output(
-                "VPCID", Value=Ref(self.VPC)
+                "VPCID", Value=Ref(vpc)
+            )
+        )
+
+        t.add_output(
+            Output(
+                "NATEIP", Value=Ref(nat_eip)
+            )
+        )
+
+        t.add_output(
+            Output(
+                "PublicSubnetID", Value=Ref(public_subnet)
+            )
+        )
+
+        t.add_output(
+            Output(
+                "PrivateSubnetID", Value=Ref(private_subnet)
             )
         )
 
 
-    def create_vpc(self, clustername, vpc_cidr):
+    def create_vpc(self, clustername, vpc_cidr, public_subnet_cidr, private_subnet_cidr):
         t = self.template
 
-        self.VPC = t.add_resource(
+        vpc = t.add_resource(
             VPC(
                 '{}Vpc'.format(clustername),
                 EnableDnsSupport=False,
@@ -88,30 +115,37 @@ class EKSVPC(Blueprint):
             )
         )
 
-
-    def create_internet_gateway(self, clustername):
-        t = self.template
-
-        self.internetGateway = t.add_resource(
-            InternetGateway(
-                '{}InternetGateway'.format(clustername),
-                Tags=Tags(
-                    Name=clustername,
-                    Network="Public"
-                )
+        public_subnet = t.add_resource(
+            Subnet(
+                '{}PublicSubnet'.format(clustername),
+                CidrBlock=public_subnet_cidr,
+                VpcId=Ref(vpc),
+                MapPublicIpOnLaunch=True,
+                Tags=Tags({
+                    "Name": "{} public subnet".format(clustername),
+                    "Network": "Public",
+                    "kubernetes.io/cluster/{}".format(clustername): "shared"
+                })
             )
         )
 
-        t.add_resource(
-            VPCGatewayAttachment(
-                '{}VPCGatewayAttachment'.format(clustername),
-                VpcId=Ref(self.VPC),
-                InternetGatewayId=Ref(self.internetGateway)
+        private_subnet = t.add_resource(
+            Subnet(
+                '{}PrivateSubnet'.format(clustername),
+                CidrBlock=private_subnet_cidr,
+                VpcId=Ref(vpc),
+                Tags=Tags({
+                    "Name": "{} private subnet".format(clustername),
+                    "Network": "Private",
+                    "kubernetes.io/cluster/{}".format(clustername): "shared"
+                })
             )
         )
 
+        return vpc, public_subnet, private_subnet
 
-    def create_nat_gateway(self, clustername):
+
+    def create_nat_gateway(self, clustername, vpc, public_subnet, private_subnet):
         t = self.template
 
         nat_eip = t.add_resource(
@@ -122,54 +156,19 @@ class EKSVPC(Blueprint):
             )
         )
 
-        self.nat_gateway = t.add_resource(
+        nat_gateway = t.add_resource(
             NatGateway(
                 '{}NatGateway'.format(clustername),
                 AllocationId=GetAtt(nat_eip, "AllocationId"),
-                SubnetId=Ref(self.PublicSubnet),
+                SubnetId=Ref(public_subnet),
                 DependsOn='{}VPCGatewayAttachment'.format(clustername)
             )
         )
 
-
-    def create_subnets(self, clustername, private_subnet, public_subnet):
-        t = self.template
-
-        self.PrivateSubnet = t.add_resource(
-            Subnet(
-                '{}PrivateSubnet'.format(clustername),
-                CidrBlock=private_subnet,
-                VpcId=Ref(self.VPC),
-                Tags=Tags({
-                    "Name": "{} private subnet".format(clustername),
-                    "Network": "Private",
-                    "kubernetes.io/cluster/{}".format(clustername): "shared"
-                })
-            )
-        )
-
-        self.PublicSubnet = t.add_resource(
-            Subnet(
-                '{}PublicSubnet'.format(clustername),
-                CidrBlock=public_subnet,
-                VpcId=Ref(self.VPC),
-                MapPublicIpOnLaunch=True,
-                Tags=Tags({
-                    "Name": "{} public subnet".format(clustername),
-                    "Network": "Public",
-                    "kubernetes.io/cluster/{}".format(clustername): "shared"
-                })
-            )
-        )
-
-
-    def create_route_tables(self, clustername):
-        t = self.template
-
         PrivateSubnetRouteTable = t.add_resource(
             RouteTable(
                 '{}PrivateRouteTable'.format(clustername),
-                VpcId=Ref(self.VPC),
+                VpcId=Ref(vpc),
                 Tags=Tags({
                     "Name": "{} private subnets".format(clustername),
                     "Network": "Private",
@@ -184,22 +183,46 @@ class EKSVPC(Blueprint):
                 DependsOn='{}VPCGatewayAttachment'.format(clustername),
                 DestinationCidrBlock='0.0.0.0/0',
                 RouteTableId=Ref(PrivateSubnetRouteTable),
-                NatGatewayId=Ref(self.nat_gateway)
+                NatGatewayId=Ref(nat_gateway)
             )
         )
 
         t.add_resource(
             SubnetRouteTableAssociation(
                 '{}PrivateSubnetRouteTableAssociation'.format(clustername),
-                SubnetId=Ref(self.PrivateSubnet),
+                SubnetId=Ref(private_subnet),
                 RouteTableId=Ref(PrivateSubnetRouteTable),
+            )
+        )
+
+        return nat_eip
+
+
+    def create_internet_gateway(self, clustername, vpc, public_subnet):
+        t = self.template
+
+        internetGateway = t.add_resource(
+            InternetGateway(
+                '{}InternetGateway'.format(clustername),
+                Tags=Tags(
+                    Name=clustername,
+                    Network="Public"
+                )
+            )
+        )
+
+        t.add_resource(
+            VPCGatewayAttachment(
+                '{}VPCGatewayAttachment'.format(clustername),
+                VpcId=Ref(vpc),
+                InternetGatewayId=Ref(internetGateway)
             )
         )
 
         PublicSubnetRouteTable = t.add_resource(
             RouteTable(
                 '{}PublicRouteTable'.format(clustername),
-                VpcId=Ref(self.VPC),
+                VpcId=Ref(vpc),
                 Tags=Tags(
                     Name="{} public subnets".format(clustername),
                     Network="Public"
@@ -213,14 +236,14 @@ class EKSVPC(Blueprint):
                 DependsOn='{}VPCGatewayAttachment'.format(clustername),
                 DestinationCidrBlock='0.0.0.0/0',
                 RouteTableId=Ref(PublicSubnetRouteTable),
-                GatewayId=Ref(self.internetGateway)
+                GatewayId=Ref(internetGateway)
             )
         )
 
         t.add_resource(
             SubnetRouteTableAssociation(
                 '{}PublicSubnetRouteTableAssociation'.format(clustername),
-                SubnetId=Ref(self.PublicSubnet),
+                SubnetId=Ref(public_subnet),
                 RouteTableId=Ref(PublicSubnetRouteTable),
             )
         )
