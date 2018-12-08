@@ -32,7 +32,8 @@ class EKSVPC(Blueprint):
         "PrivateSubnetCIDR": {
             "type": CFNString,
             "default": "10.0.0.0/19",
-            "description": "IDR Block for the Private Subnet"
+
+            "description": "CIDR Block for the Private Subnet"
         },
         "PublicSubnetCIDR": {
             "type": CFNString,

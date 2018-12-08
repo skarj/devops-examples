@@ -21,6 +21,7 @@ import awacs.logs as logs
 class Imagefetcher(Blueprint):
     """
     Imagefetcher resources
+     * S3 Bucket
     """
     VARIABLES = {
         "GithubRepo": {
@@ -40,9 +41,19 @@ class Imagefetcher(Blueprint):
         basename = self.context.namespace.replace("-", "")
 
         images_bucket = self.create_images_bucket(basename)
-        self.create_codebuild_role(basename)
-        self.create_container_registry(basename)
-        self.create_codebuild_project(basename, github_repo)
+
+        codebuild_role = self.create_codebuild_role(basename)
+
+        self.create_container_registry(
+            basename,
+            codebuild_role
+        )
+
+        self.create_codebuild_project(
+            basename,
+            codebuild_role,
+            github_repo
+        )
 
         t.add_output(Output(
             "{}Bucket".format(basename),
@@ -63,7 +74,7 @@ class Imagefetcher(Blueprint):
     def create_codebuild_role(self, basename):
         t = self.template
 
-        self.codebuild_role = t.add_resource(Role(
+        codebuild_role = t.add_resource(Role(
             "{}Codebuild".format(basename),
             AssumeRolePolicyDocument=Policy(
                 Statement=[
@@ -77,46 +88,47 @@ class Imagefetcher(Blueprint):
             Policies=[
                 IamPolicy(
                     PolicyName="{}Codebuild".format(basename),
-                    PolicyDocument={
-                        # recreate using awacs
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Action": [
-                                    "logs:CreateLogGroup",
-                                    "logs:CreateLogStream",
-                                    "logs:PutLogEvents",
+                    PolicyDocument=Policy(
+                        Version='2012-10-17',
+                        Statement=[
+                            Statement(
+                                Action=[
+                                    logs.CreateLogGroup,
+                                    logs.CreateLogStream,
+                                    logs.PutLogEvents
                                 ],
-                                "Resource": [
+                                Effect=Allow,
+                                Resource=[
                                     Join("", ["arn:aws:logs:", Region, ":", AccountId,
                                             ":log-group:/aws/codebuild/", basename]),
                                     Join("", ["arn:aws:logs:", Region, ":", AccountId,
                                             ":log-group:/aws/codebuild/", basename, ":*"])
+                                ]
+                            ),
+                            Statement(
+                                Action=[
+                                    ecr.GetAuthorizationToken
                                 ],
-                                "Effect": "Allow"
-                            },
-                            {
-                                "Action": [
-                                    "ecr:GetAuthorizationToken"
+                                Effect=Allow,
+                                Resource=["*"]
+                            ),
+                            Statement(
+                                Action=[
+                                    ecr.InitiateLayerUpload
                                 ],
-                                "Resource": ["*"],
-                                "Effect": "Allow"
-                            },
-                            {
-                                "Action": [
-                                    "ecr:InitiateLayerUpload"
-                                ],
-                                "Resource": ["*"],
-                                "Effect": "Allow"
-                            }
+                                Effect=Allow,
+                                Resource=["*"],
+                            )
                         ]
-                    }
+                    )
                 )
             ]
         ))
 
+        return codebuild_role
 
-    def create_container_registry(self, basename):
+
+    def create_container_registry(self, basename, service_role):
         t = self.template
 
         t.add_resource(
@@ -129,7 +141,7 @@ class Imagefetcher(Blueprint):
                         Statement(
                             Sid='AllowPushPull',
                             Effect=Allow,
-                            Principal=Principal("AWS", GetAtt(self.codebuild_role, "Arn")),
+                            Principal=Principal("AWS", GetAtt(service_role, "Arn")),
                             Action=[
                                 ecr.GetDownloadUrlForLayer,
                                 ecr.BatchGetImage,
@@ -146,7 +158,7 @@ class Imagefetcher(Blueprint):
         )
 
 
-    def create_codebuild_project(self, basename, github_repo):
+    def create_codebuild_project(self, basename, service_role, github_repo):
         t = self.template
 
         t.add_version('2010-09-09')
@@ -175,7 +187,7 @@ class Imagefetcher(Blueprint):
             Name=basename,
             Artifacts=artifacts,
             Environment=environment,
-            ServiceRole=GetAtt(self.codebuild_role, "Arn"),
+            ServiceRole=GetAtt(service_role, "Arn"),
             Source=source,
         )
 

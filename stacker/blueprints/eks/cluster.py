@@ -1,6 +1,5 @@
 from stacker.blueprints.base import Blueprint
-from troposphere.iam import Role, Policy as IamPolicy
-from troposphere.ec2 import SecurityGroupRule, SecurityGroup
+from stacker.blueprints.variables.types import EC2VPCId, EC2SubnetIdList
 
 from troposphere import (
     Output, Ref, Template,
@@ -8,8 +7,14 @@ from troposphere import (
     GetAtt, Tags
 )
 
-from awacs.sts import AssumeRole
+from troposphere.iam import Role, Policy as IamPolicy
+from troposphere.ec2 import SecurityGroupRule, SecurityGroup
+from troposphere.eks import Cluster, ResourcesVpcConfig
+
 from awacs.aws import Allow, Policy, Statement, Principal
+from awacs import sts
+import awacs.iam as iam
+import awacs.ec2 as ec2
 
 
 class EKSCluster(Blueprint):
@@ -19,7 +24,21 @@ class EKSCluster(Blueprint):
      * EC2 Security Group to allow networking traffic with EKS cluster
      * EKS Cluster
     """
-    VARIABLES = {}
+    VARIABLES = {
+        "VpcId": {
+            "type": str,
+            "description": "ID of VPC in which DHW resources will be created"
+        },
+        "PublicSubnetId": {
+            "type": str,
+            "description": ""
+        },
+        "ClusterVersion": {
+            "type": str,
+            "default": "1.10",
+            "description": "Version of Kubernetes cluster"
+        }
+    }
 
 
     def create_template(self):
@@ -27,63 +46,97 @@ class EKSCluster(Blueprint):
         t.add_description("Stack for EKS infrastructure")
 
         variables = self.get_variables()
+        vpc_id = variables["VpcId"]
+        cluster_version = variables["ClusterVersion"]
+        public_subnet_id = variables["PublicSubnetId"]
 
-        ref_stack_id = Ref('AWS::StackId')
-        ref_region = Ref('AWS::Region')
-        ref_stack_name = Ref('AWS::StackName')
+        basename = self.context.namespace.replace("-", "")
 
-        clustername = self.context.namespace.replace("-", "")
+        eks_role = self.create_eks_role(basename)
+        eks_security_group = self.create_eks_security_group(basename, vpc_id)
 
-        self.create_eks_role()
-        self.create_eks_security_group(clustername)
+        eks_cluser = self.create_eks_cluster(
+            basename,
+            eks_role,
+            eks_security_group,
+            public_subnet_id,
+            cluster_version
+        )
+
+        t.add_output(
+            Output(
+                "ClusterName", Value=Ref(eks_cluser)
+            )
+        )
+
+        t.add_output(
+            Output(
+                "ClusterArn", Value=GetAtt(eks_cluser, "Arn")
+            )
+        )
+
+        t.add_output(
+            Output(
+                "ClusterEndpoint", Value=GetAtt(eks_cluser, "Endpoint")
+            )
+        )
+
+        t.add_output(
+            Output(
+                "ClusterControlPlaneSecurityGroup", Value=Ref(eks_security_group)
+            )
+        )
 
 
-    def create_eks_security_group(self, clustername):
+    def create_eks_security_group(self, basename, vpc_id):
         t = self.template
-        t.add_description("Cluster communication with worker nodes")
 
-        self.ClusterSecurityGroup = t.add_resource(
+        security_group = t.add_resource(
             SecurityGroup(
-                "{}ClusterSecurityGroup".format(clustername),
-                GroupDescription='Enable SSH access via port 22',
-                SecurityGroupEgress=[
-                    SecurityGroupRule(
-                        IpProtocol='-1',
-                        FromPort='0',
-                        ToPort='0',
-                        CidrIp='0.0.0.0/0'
-                    )
-                ],
-                SecurityGroupIngress=[
-                    SecurityGroupRule(
-                        Description='Allow pods to communicate with the cluster API Server',
-                        IpProtocol='tcp',
-                        FromPort='443',
-                        ToPort='443',
-                        SourceSecurityGroupId=Ref(self.VPC)
-                    ),
-                    SecurityGroupRule(
-                        Description='Allow workstation to communicate with the cluster API Server',
-                        IpProtocol='tcp',
-                        FromPort='443',
-                        ToPort='443',
-                        cidr_blocks= ["${local.workstation-external-cidr}"] ### FF
-                    )
-                ],
-                VpcId=Ref(self.VPC)
+                "{}ClusterSecurityGroup".format(basename),
+                GroupDescription='Cluster communication with worker nodes',
+                # SecurityGroupEgress=[
+                #     SecurityGroupRule(
+                #         IpProtocol='-1',
+                #         FromPort='0',
+                #         ToPort='0',
+                #         CidrIp='0.0.0.0/0'
+                #     )
+                # ],
+                # SecurityGroupIngress=[
+                #     SecurityGroupRule(
+                #         Description='Allow pods to communicate with the cluster API Server',
+                #         IpProtocol='tcp',
+                #         FromPort='443',
+                #         ToPort='443',
+                #         SourceSecurityGroupId=vpc_id
+                #     ),
+                #     SecurityGroupRule(
+                #         Description='Allow workstation to communicate with the cluster API Server',
+                #         IpProtocol='tcp',
+                #         FromPort='443',
+                #         ToPort='443',
+                #         cidr_blocks= ["${local.workstation-external-cidr}"] ### FF
+                #     )
+                # ],
+                VpcId=vpc_id
             ))
 
+        return security_group
 
-    def create_eks_role(self):
+
+    def create_eks_role(self, basename):
         t = self.template
 
-        self.eks_role = t.add_resource(Role(
-            "EKScluster",
+        t.add_description("Allows EKS to manage clusters")
+
+        eks_role = t.add_resource(Role(
+            "{}EKSClusterRole".format(basename),
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(
+                        Action=[sts.AssumeRole],
                         Effect=Allow,
-                        Action=[AssumeRole],
                         Principal=Principal("Service", ["eks.amazonaws.com"])
                     )
                 ]
@@ -91,30 +144,24 @@ class EKSCluster(Blueprint):
             ManagedPolicyArns=[
                 "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
                 "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
-            ],
-            Policies=[
-                IamPolicy(
-                    PolicyName="EKSClusterPolicy",
-                    PolicyDocument={
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Action": [
-                                    "iam:CreateServiceLinkedRole"
-                                ],
-                                "Resource": ["arn:aws:iam::*:role/aws-service-role/*"],
-                                "Effect": "Allow"
-                            },
-                            {
-                                "Action": [
-                                    "ec2:DescribeAccountAttributes",
-                                    "ec2:DescribeInternetGateways"
-                                ],
-                                "Resource": ["*"],
-                                "Effect": "Allow"
-                            },
-                        ]
-                    }
-                ),
             ]
         ))
+
+        return eks_role
+
+
+    def create_eks_cluster(self, basename, role, security_group, subnet_id, version):
+        t = self.template
+
+        cluster = t.add_resource(Cluster(
+            "{}EKSCluster".format(basename),
+            ResourcesVpcConfig=ResourcesVpcConfig(
+                SecurityGroupIds=[Ref(security_group)],
+                # Subnets specified must be in at least two different AZs
+                SubnetIds=[subnet_id] # fix
+            ),
+            RoleArn=GetAtt(role, "Arn"),
+            Version=version
+        ))
+
+        return cluster

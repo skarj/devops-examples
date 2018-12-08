@@ -5,6 +5,13 @@ stacks:
   - name: vpc
     class_path: blueprints.eks.vpc.EKSVPC
 
+  - name: eks-cluster
+    class_path: blueprints.eks.cluster.EKSCluster
+    variables:
+      VpcId: ${output vpc::VPCID}
+      PublicSubnetId: ${output vpc::PublicSubnetID}
+      Version: "1.10"
+
   # - name: imagefetcher
   #   class_path: blueprints.imagefetcher.Imagefetcher
   #   variables:
