@@ -3,7 +3,7 @@ namespace: imagefetcher
 stacker_bucket: imagefetcher-stacker
 
 stacks:
-  - name: vpc
+  - name: eks-vpc
     class_path: blueprints.eks.vpc.EKSVPC
     variables:
       BaseCidr: "10.24"
@@ -12,8 +12,13 @@ stacks:
     class_path: blueprints.eks.cluster.EKSCluster
     variables:
       VpcId: ${output vpc::VPCID}
-      PublicSubnets: ${output vpc::PublicSubnets}
+      PublicSubnets: ${output eks-vpc::PublicSubnets}
       Version: "1.10"
+
+  - name: eks-nodes
+    class_path: blueprints.eks.nodes.EKSNodes
+    variables:
+      ClusterSecurityGroup: ${output eks-cluster::ClusterControlPlaneSecurityGroup}
 
   # - name: imagefetcher
   #   class_path: blueprints.imagefetcher.Imagefetcher

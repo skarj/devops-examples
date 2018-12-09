@@ -1,14 +1,12 @@
 from stacker.blueprints.base import Blueprint
-from stacker.blueprints.variables.types import EC2VPCId, EC2SubnetIdList
 
 from troposphere import (
     Output, Ref, Template,
-    AccountId, Region, Join,
-    GetAtt, Tags, Split
+    Join, Split, GetAtt
 )
 
-from troposphere.iam import Role, Policy as IamPolicy
-from troposphere.ec2 import SecurityGroupRule, SecurityGroup
+from troposphere.iam import Role
+from troposphere.ec2 import SecurityGroup
 from troposphere.eks import Cluster, ResourcesVpcConfig
 
 from awacs.aws import Allow, Policy, Statement, Principal
@@ -27,7 +25,7 @@ class EKSCluster(Blueprint):
     VARIABLES = {
         "VpcId": {
             "type": str,
-            "description": "ID of VPC in which DHW resources will be created"
+            "description": "ID of VPC in which resources will be created"
         },
         "PublicSubnets": {
             "type": str,
@@ -50,7 +48,7 @@ class EKSCluster(Blueprint):
         cluster_version = variables["ClusterVersion"]
         public_subnets = variables["PublicSubnets"]
 
-        basename = self.context.namespace.replace("-", "")
+        basename = "{}Eks".format(self.context.namespace).replace("-", "")
 
         eks_role = self.create_eks_role(basename)
         eks_security_group = self.create_eks_security_group(basename, vpc_id)
@@ -91,38 +89,12 @@ class EKSCluster(Blueprint):
     def create_eks_security_group(self, basename, vpc_id):
         t = self.template
 
-        security_group = t.add_resource(
+        return t.add_resource(
             SecurityGroup(
                 "{}ClusterSecurityGroup".format(basename),
                 GroupDescription='Cluster communication with worker nodes',
-                # SecurityGroupEgress=[
-                #     SecurityGroupRule(
-                #         IpProtocol='-1',
-                #         FromPort='0',
-                #         ToPort='0',
-                #         CidrIp='0.0.0.0/0'
-                #     )
-                # ],
-                # SecurityGroupIngress=[
-                #     SecurityGroupRule(
-                #         Description='Allow pods to communicate with the cluster API Server',
-                #         IpProtocol='tcp',
-                #         FromPort='443',
-                #         ToPort='443',
-                #         SourceSecurityGroupId=vpc_id
-                #     ),
-                #     SecurityGroupRule(
-                #         Description='Allow workstation to communicate with the cluster API Server',
-                #         IpProtocol='tcp',
-                #         FromPort='443',
-                #         ToPort='443',
-                #         cidr_blocks= [workstation-external-cidr]
-                #     )
-                # ],
                 VpcId=vpc_id
             ))
-
-        return security_group
 
 
     def create_eks_role(self, basename):
@@ -130,8 +102,8 @@ class EKSCluster(Blueprint):
 
         t.add_description("Allows EKS to manage clusters")
 
-        eks_role = t.add_resource(Role(
-            "{}EKSClusterRole".format(basename),
+        return t.add_resource(Role(
+            "{}ClusterRole".format(basename),
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(
@@ -147,14 +119,12 @@ class EKSCluster(Blueprint):
             ]
         ))
 
-        return eks_role
-
 
     def create_eks_cluster(self, basename, role, security_group, subnets, version):
         t = self.template
 
-        cluster = t.add_resource(Cluster(
-            "{}EKSCluster".format(basename),
+        return t.add_resource(Cluster(
+            "{}Cluster".format(basename),
             ResourcesVpcConfig=ResourcesVpcConfig(
                 SecurityGroupIds=[Ref(security_group)],
                 # Subnets specified must be in at least two different AZs
@@ -163,5 +133,3 @@ class EKSCluster(Blueprint):
             RoleArn=GetAtt(role, "Arn"),
             Version=version
         ))
-
-        return cluster
