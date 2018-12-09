@@ -1,4 +1,1 @@
-# https://stacker.readthedocs.io/en/latest/environments.html
-namespace: imagefetcher
-
 imagefetcherGithubRepo: "https://github.com/skarj/devops-callenge.git"

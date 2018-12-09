@@ -4,7 +4,7 @@ from stacker.blueprints.variables.types import EC2VPCId, EC2SubnetIdList
 from troposphere import (
     Output, Ref, Template,
     AccountId, Region, Join,
-    GetAtt, Tags
+    GetAtt, Tags, Split
 )
 
 from troposphere.iam import Role, Policy as IamPolicy
@@ -29,7 +29,7 @@ class EKSCluster(Blueprint):
             "type": str,
             "description": "ID of VPC in which DHW resources will be created"
         },
-        "PublicSubnetId": {
+        "PublicSubnets": {
             "type": str,
             "description": ""
         },
@@ -48,7 +48,7 @@ class EKSCluster(Blueprint):
         variables = self.get_variables()
         vpc_id = variables["VpcId"]
         cluster_version = variables["ClusterVersion"]
-        public_subnet_id = variables["PublicSubnetId"]
+        public_subnets = variables["PublicSubnets"]
 
         basename = self.context.namespace.replace("-", "")
 
@@ -59,7 +59,7 @@ class EKSCluster(Blueprint):
             basename,
             eks_role,
             eks_security_group,
-            public_subnet_id,
+            public_subnets,
             cluster_version
         )
 
@@ -116,7 +116,7 @@ class EKSCluster(Blueprint):
                 #         IpProtocol='tcp',
                 #         FromPort='443',
                 #         ToPort='443',
-                #         cidr_blocks= ["${local.workstation-external-cidr}"] ### FF
+                #         cidr_blocks= [workstation-external-cidr]
                 #     )
                 # ],
                 VpcId=vpc_id
@@ -150,7 +150,7 @@ class EKSCluster(Blueprint):
         return eks_role
 
 
-    def create_eks_cluster(self, basename, role, security_group, subnet_id, version):
+    def create_eks_cluster(self, basename, role, security_group, subnets, version):
         t = self.template
 
         cluster = t.add_resource(Cluster(
@@ -158,7 +158,7 @@ class EKSCluster(Blueprint):
             ResourcesVpcConfig=ResourcesVpcConfig(
                 SecurityGroupIds=[Ref(security_group)],
                 # Subnets specified must be in at least two different AZs
-                SubnetIds=[subnet_id] # fix
+                SubnetIds=Split(",", subnets)
             ),
             RoleArn=GetAtt(role, "Arn"),
             Version=version

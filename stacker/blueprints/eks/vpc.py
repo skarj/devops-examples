@@ -1,9 +1,8 @@
 from stacker.blueprints.base import Blueprint
-from stacker.blueprints.variables.types import CFNString
 
 from troposphere import (
-    Output, Ref, GetAtt,
-    Template, Join, Tags
+    Output, Ref, GetAtt, GetAZs, NoValue,
+    Template, Join, Tags, Region, Select
 )
 
 from troposphere.ec2 import (
@@ -24,22 +23,10 @@ class EKSVPC(Blueprint):
      * Route Tables
     """
     VARIABLES = {
-        "VPCCIDR": {
-            "type": CFNString,
-            "default": "10.0.0.0/16",
-            "description": "VPC CIDR Block"
-        },
-        "PrivateSubnetCIDR": {
-            "type": CFNString,
-            "default": "10.0.0.0/19",
-
-            "description": "CIDR Block for the Private Subnet"
-        },
-        "PublicSubnetCIDR": {
-            "type": CFNString,
-            "default": "10.0.128.0/20",
-            "description": "CIDR Block for the Public Subnet"
-        },
+        "BaseCidr": {
+            "type": str,
+            "description": "The two first octets of the VPC CIDR string."
+        }
     }
 
 
@@ -49,30 +36,75 @@ class EKSVPC(Blueprint):
         t.add_description("Stack for EKS VPC")
 
         variables = self.get_variables()
-        vpc_cidr = variables["VPCCIDR"].ref
-        private_subnet_cidr = variables["PrivateSubnetCIDR"].ref
-        public_subnet_cidr = variables["PublicSubnetCIDR"].ref
+        vpc_base_cidr = variables["BaseCidr"]
 
         clustername = "{}Eks".format(self.context.namespace).replace("-", "")
 
-        vpc, public_subnet, private_subnet = self.create_vpc(
+        public_subnet_cidrs = [
+            "{}.24.0/24".format(vpc_base_cidr),
+            "{}.32.0/24".format(vpc_base_cidr)       
+        ]
+
+        private_subnet_cidrs = [
+            "{}.40.0/24".format(vpc_base_cidr),
+            "{}.48.0/24".format(vpc_base_cidr)   
+        ]
+
+        vpc = self.create_vpc(
             clustername,
-            vpc_cidr,
-            public_subnet_cidr,
-            private_subnet_cidr
+            vpc_base_cidr
         )
 
-        nat_eip = self.create_nat_gateway(
+        public_subnet_route_table = self.create_route_table(
             clustername,
             vpc,
-            public_subnet,
-            private_subnet
+            public=True
         )
 
-        self.create_internet_gateway(
+        private_subnet_route_table = self.create_route_table(
+            clustername,
+            vpc
+        )
+
+        public_subnets = self.create_subnet(
             clustername,
             vpc,
-            public_subnet
+            public_subnet_cidrs,
+            public_subnet_route_table,
+            public=True
+        )
+
+        private_subnets = self.create_subnet(
+            clustername,
+            vpc,
+            private_subnet_cidrs,
+            private_subnet_route_table
+        )
+
+        internet_gateway = self.create_internet_gateway(
+            clustername,
+            vpc
+        )
+
+        nat_gateway, nat_eip = self.create_nat_gateway(
+            clustername,
+            public_subnets[0]
+        )
+
+        self.add_route(
+            "{}InternetGateway".format(clustername),
+            public_subnet_route_table,
+            internet_gateway,
+            NoValue,
+            "0.0.0.0/0"
+        )
+
+        self.add_route(
+            "{}NatGateway".format(clustername),
+            private_subnet_route_table,
+            NoValue,
+            nat_gateway,
+            "0.0.0.0/0"
         )
 
         t.add_output(
@@ -89,64 +121,99 @@ class EKSVPC(Blueprint):
 
         t.add_output(
             Output(
-                "PublicSubnetID", Value=Ref(public_subnet)
+                "PublicSubnets", Value=Join(",", [Ref(subnet) for subnet in public_subnets])
             )
         )
 
         t.add_output(
             Output(
-                "PrivateSubnetID", Value=Ref(private_subnet)
+                "PrivateSubnets", Value=Join(",", [Ref(subnet) for subnet in private_subnets])
             )
         )
 
 
-    def create_vpc(self, clustername, vpc_cidr, public_subnet_cidr, private_subnet_cidr):
+    def create_vpc(self, clustername, vpc_base_cidr):
         t = self.template
 
-        vpc = t.add_resource(
+        return t.add_resource(
             VPC(
                 '{}Vpc'.format(clustername),
                 EnableDnsSupport=False,
                 EnableDnsHostnames=False,
-                CidrBlock=vpc_cidr,
+                CidrBlock="{}.0.0/16".format(vpc_base_cidr),
                 Tags=Tags({
                     "Name": clustername,
+                    # https://docs.aws.amazon.com/en_us/eks/latest/userguide/network_reqs.html
                     "kubernetes.io/cluster/{}".format(clustername): "shared"
                 })
             )
         )
 
-        public_subnet = t.add_resource(
-            Subnet(
-                '{}PublicSubnet'.format(clustername),
-                CidrBlock=public_subnet_cidr,
-                VpcId=Ref(vpc),
-                MapPublicIpOnLaunch=True,
-                Tags=Tags({
-                    "Name": "{} public subnet".format(clustername),
-                    "Network": "Public",
-                    "kubernetes.io/cluster/{}".format(clustername): "shared"
-                })
-            )
-        )
 
-        private_subnet = t.add_resource(
-            Subnet(
-                '{}PrivateSubnet'.format(clustername),
-                CidrBlock=private_subnet_cidr,
+    def create_route_table(self, clustername, vpc, public=False):
+        t = self.template
+
+        privacy = "Public" if public == True else "Private"
+        internal_elb = "0" if public == True else "1"
+
+        return t.add_resource(
+            RouteTable(
+                '{0}{1}RouteTable'.format(clustername, privacy),
                 VpcId=Ref(vpc),
                 Tags=Tags({
-                    "Name": "{} private subnet".format(clustername),
-                    "Network": "Private",
-                    "kubernetes.io/cluster/{}".format(clustername): "shared"
+                    "Name": "{0} {1} Subnets".format(clustername, privacy),
+                    "Network": privacy,
+                    # https://docs.aws.amazon.com/en_us/eks/latest/userguide/network_reqs.html
+                    "kubernetes.io/role/internal-elb": internal_elb
                 })
             )
         )
 
-        return vpc, public_subnet, private_subnet
+
+    def create_subnet(self, clustername, vpc, cidrs, route_table, public=False):
+
+        if type(cidrs) is not list:
+            raise TypeError("fatal: cidrs must be a list of cidrs, "
+                            "e.g. ['1.2.3.0/24']. received '{}'".format(cidrs))
+
+        t = self.template
+
+        privacy = "Public" if public == True else "Private"
+        subnets = []
+
+        for index, cidr in enumerate(cidrs):
+            zone_num = str(index + 1)
+
+            subnet = t.add_resource(
+                Subnet(
+                    '{0}{1}Subnet{2}'.format(clustername, privacy, zone_num),
+                    CidrBlock=cidr,
+                    VpcId=Ref(vpc),
+                    AvailabilityZone=Select(str(index), GetAZs(Region)),
+                    MapPublicIpOnLaunch=public,
+                    Tags=Tags({
+                        "Name": "{0} {1} Subnet Zone {2}".format(clustername, privacy, zone_num),
+                        "Network": privacy,
+                        # https://docs.aws.amazon.com/en_us/eks/latest/userguide/network_reqs.html
+                        "kubernetes.io/cluster/{}".format(clustername): "shared"
+                    })
+                )
+            )
+
+            t.add_resource(
+                SubnetRouteTableAssociation(
+                    '{0}{1}SubnetZone{2}RouteTableAssociation'.format(clustername, privacy, zone_num),
+                    SubnetId=Ref(subnet),
+                    RouteTableId=Ref(route_table),
+                )
+            )
+
+            subnets.append(subnet)
+
+        return subnets
 
 
-    def create_nat_gateway(self, clustername, vpc, public_subnet, private_subnet):
+    def create_nat_gateway(self, clustername, subnet):
         t = self.template
 
         nat_eip = t.add_resource(
@@ -161,45 +228,15 @@ class EKSVPC(Blueprint):
             NatGateway(
                 '{}NatGateway'.format(clustername),
                 AllocationId=GetAtt(nat_eip, "AllocationId"),
-                SubnetId=Ref(public_subnet),
+                SubnetId=Ref(subnet),
                 DependsOn='{}VPCGatewayAttachment'.format(clustername)
             )
         )
 
-        PrivateSubnetRouteTable = t.add_resource(
-            RouteTable(
-                '{}PrivateRouteTable'.format(clustername),
-                VpcId=Ref(vpc),
-                Tags=Tags({
-                    "Name": "{} private subnets".format(clustername),
-                    "Network": "Private",
-                    "kubernetes.io/role/internal-elb": "1"
-                })
-            )
-        )
-
-        t.add_resource(
-            Route(
-                '{}PrivateSubnetRoute'.format(clustername),
-                DependsOn='{}VPCGatewayAttachment'.format(clustername),
-                DestinationCidrBlock='0.0.0.0/0',
-                RouteTableId=Ref(PrivateSubnetRouteTable),
-                NatGatewayId=Ref(nat_gateway)
-            )
-        )
-
-        t.add_resource(
-            SubnetRouteTableAssociation(
-                '{}PrivateSubnetRouteTableAssociation'.format(clustername),
-                SubnetId=Ref(private_subnet),
-                RouteTableId=Ref(PrivateSubnetRouteTable),
-            )
-        )
-
-        return nat_eip
+        return nat_gateway, nat_eip
 
 
-    def create_internet_gateway(self, clustername, vpc, public_subnet):
+    def create_internet_gateway(self, clustername, vpc):
         t = self.template
 
         internetGateway = t.add_resource(
@@ -220,31 +257,25 @@ class EKSVPC(Blueprint):
             )
         )
 
-        PublicSubnetRouteTable = t.add_resource(
-            RouteTable(
-                '{}PublicRouteTable'.format(clustername),
-                VpcId=Ref(vpc),
-                Tags=Tags(
-                    Name="{} public subnets".format(clustername),
-                    Network="Public"
-                )
-            )
-        )
+        return internetGateway
 
-        t.add_resource(
-            Route(
-                '{}PublicSubnetRoute'.format(clustername),
-                DependsOn='{}VPCGatewayAttachment'.format(clustername),
-                DestinationCidrBlock='0.0.0.0/0',
-                RouteTableId=Ref(PublicSubnetRouteTable),
-                GatewayId=Ref(internetGateway)
-            )
-        )
 
-        t.add_resource(
-            SubnetRouteTableAssociation(
-                '{}PublicSubnetRouteTableAssociation'.format(clustername),
-                SubnetId=Ref(public_subnet),
-                RouteTableId=Ref(PublicSubnetRouteTable),
-            )
-        )
+    def add_route(self, route_name, route_table,
+                internet_gateway, nat_gateway, destination):
+
+        t = self.template
+
+        if internet_gateway == NoValue:
+            return t.add_resource(Route(
+                "{}Route".format(route_name),
+                RouteTableId=Ref(route_table),
+                NatGatewayId=Ref(nat_gateway),
+                DestinationCidrBlock=destination
+            ))
+        else:
+            return t.add_resource(Route(
+                "{}Route".format(route_name),
+                RouteTableId=Ref(route_table),
+                GatewayId=Ref(internet_gateway),
+                DestinationCidrBlock=destination
+            ))
