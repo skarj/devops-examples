@@ -17,10 +17,13 @@ class EKSVPC(Blueprint):
     """
     VPC Resources
      * VPC
-     * Subnets
+     * Public and Private subnets
      * Internet Gateway
      * NAT Gateway
      * Route Tables
+
+    Private subnets for worker nodes and public subnets for Kubernetes to create internet-facing load balancers
+    https://docs.aws.amazon.com/en_us/eks/latest/userguide/create-public-private-vpc.html
     """
     VARIABLES = {
         "BaseCidr": {
@@ -33,7 +36,7 @@ class EKSVPC(Blueprint):
     def create_template(self):
         t = self.template
 
-        t.add_description("Stack for EKS VPC")
+        t.add_description("Amazon EKS VPC")
 
         variables = self.get_variables()
         vpc_base_cidr = variables["BaseCidr"]
@@ -42,12 +45,12 @@ class EKSVPC(Blueprint):
 
         public_subnet_cidrs = [
             "{}.24.0/24".format(vpc_base_cidr),
-            "{}.32.0/24".format(vpc_base_cidr)       
+            "{}.32.0/24".format(vpc_base_cidr)
         ]
 
         private_subnet_cidrs = [
             "{}.40.0/24".format(vpc_base_cidr),
-            "{}.48.0/24".format(vpc_base_cidr)   
+            "{}.48.0/24".format(vpc_base_cidr)
         ]
 
         vpc = self.create_vpc(
@@ -138,19 +141,20 @@ class EKSVPC(Blueprint):
         return t.add_resource(
             VPC(
                 '{}Vpc'.format(basename),
-                EnableDnsSupport=False,
-                EnableDnsHostnames=False,
+                # VPC must have DNS hostname and DNS resolution support.
+                # Otherwise, worker nodes cannot register with cluster
+                EnableDnsSupport=True,
+                EnableDnsHostnames=True,
                 CidrBlock="{}.0.0/16".format(vpc_base_cidr),
-                Tags=Tags({
-                    "Name": basename,
-                    # https://docs.aws.amazon.com/en_us/eks/latest/userguide/network_reqs.html
-                    "kubernetes.io/cluster/{}".format(basename): "shared"
-                })
+                Tags=Tags(
+                    Name=basename
+                )
             )
         )
 
 
     def create_route_table(self, basename, vpc, public=False):
+        # https://docs.aws.amazon.com/en_us/eks/latest/userguide/create-public-private-vpc.html#vpc-tag-private-subnets
         t = self.template
 
         privacy = "Public" if public == True else "Private"
@@ -163,7 +167,6 @@ class EKSVPC(Blueprint):
                 Tags=Tags({
                     "Name": "{0} {1} Subnets".format(basename, privacy),
                     "Network": privacy,
-                    # https://docs.aws.amazon.com/en_us/eks/latest/userguide/network_reqs.html
                     "kubernetes.io/role/internal-elb": internal_elb
                 })
             )

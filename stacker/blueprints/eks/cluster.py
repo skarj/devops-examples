@@ -21,6 +21,11 @@ class EKSCluster(Blueprint):
      * IAM Role to allow EKS service to manage other AWS services
      * EC2 Security Group to allow networking traffic with EKS cluster
      * EKS Cluster
+
+    It is possible to specify only public or private subnets when create cluster:
+        Private-only: Everything runs in a private subnet and Kubernetes
+            cannot create internet-facing load balancers for pods.
+        Public-only: Everything runs in a public subnet, including your worker nodes.
     """
     VARIABLES = {
         "VpcId": {
@@ -29,7 +34,11 @@ class EKSCluster(Blueprint):
         },
         "PublicSubnets": {
             "type": str,
-            "description": ""
+            "description": "List of public vpc subnets"
+        },
+        "PrivateSubnets": {
+            "type": str,
+            "description": "List of private vpc subnets"
         },
         "ClusterVersion": {
             "type": str,
@@ -87,11 +96,12 @@ class EKSCluster(Blueprint):
 
 
     def create_eks_security_group(self, basename, vpc_id):
+        # https://docs.aws.amazon.com/en_us/eks/latest/userguide/create-public-private-vpc.html#vpc-create-sg
         t = self.template
 
         return t.add_resource(
             SecurityGroup(
-                "{}ClusterSecurityGroup".format(basename),
+                "{}ControlPlaneSecurityGroup".format(basename),
                 GroupDescription='Cluster communication with worker nodes',
                 VpcId=vpc_id
             ))

@@ -1,19 +1,25 @@
 from stacker.blueprints.base import Blueprint
-from stacker.blueprints.variables.types import EC2KeyPairKeyName, EC2ImageId
-
-from troposphere import (
-    Output, Ref, Template,
-    Join, Split, GetAtt
+from stacker.blueprints.variables.types import (
+    EC2KeyPairKeyName,
+    EC2ImageId,
+    EC2SecurityGroupId,
+    EC2VPCId,
+    EC2SubnetId
 )
 
 from troposphere.iam import Role, InstanceProfile
 from troposphere.policies import UpdatePolicy, AutoScalingRollingUpdate
+from troposphere.autoscaling import AutoScalingGroup, LaunchConfiguration, Tag
+from troposphere import (
+    Output, Ref, Template, Region,
+    Join, Split, GetAtt, Base64, StackName
+)
+
 from troposphere.ec2 import (
     SecurityGroupIngress,
     SecurityGroupEgress,
     SecurityGroup
 )
-from troposphere.autoscaling import AutoScalingGroup, LaunchConfiguration, Tag
 from awacs.aws import Allow, Policy, Statement, Principal
 from awacs import sts
 import awacs.iam as iam
@@ -29,25 +35,21 @@ class EKSNodes(Blueprint):
      * AutoScaling Group to launch worker instances
     """
     VARIABLES = {
-        "VpcId": {
-            "type": str,
-            "description": "ID of VPC in which resources will be created"
-        },
         "KeyName": {
             "type": EC2KeyPairKeyName,
-            "description": "EC2 Key Pair for SSH access to the instances"
+            "description": "The EC2 Key Pair to allow SSH access to the instances"
         },
         "NodeImageId": {
             "type": EC2ImageId,
             "description": "AMI id for the node instances",
-            "default": "ami-dea4d5a1"
-        }, 
+            "default": "ami-0a0b913ef3249b655"
+        },
         "NodeInstanceType": {
             "type": str,
             "description": "EC2 instance type for the node instances",
             "default": "t2.medium",
             "allowed_values": ['t2.small', 't2.medium', 't2.large', 't2.xlarge'],
-            "constraint_description": "must be a valid EC2 instance type"
+            "constraint_description": "Must be a valid EC2 instance type"
         },
         "NodeAutoScalingGroupMinSize": {
             "type": int,
@@ -59,18 +61,37 @@ class EKSNodes(Blueprint):
             "description": "Maximum size of Node Group ASG",
             "default": 3
         },
+        "NodeVolumeSize": {
+            "type": int,
+            "description": "Node volume size",
+            "default": 20
+        },
         "ClusterName": {
             "type": str,
-            "description": "The cluster name provided when the cluster was created"
+            "description": "The cluster name provided when the cluster was created",
+            "default": ""
         },
-        "ClusterSecurityGroup": {
+        "BootstrapArguments": {
             "type": str,
-            "description": "Cluster control plane security group for communication with worker nodes"
+            "description": "Arguments to pass to the bootstrap script. See files/bootstrap.sh in https://github.com/awslabs/amazon-eks-ami",
+            "default": ""
         },
         "NodeGroupName": {
             "type": str,
             "description": "Unique identifier for the Node Group",
             "default": "one"
+        },
+        "ClusterControlPlaneSecurityGroup": {
+            "type": EC2SecurityGroupId,
+            "description": "Cluster control plane security group for communication with worker nodes"
+        },
+        "VpcId": {
+            "type": EC2VPCId,
+            "description": "The VPC of the worker instances"
+        },
+        "Subnets": {
+            "type": EC2SubnetId,
+            "description": "The subnets where workers can be created"
         },
     }
 
@@ -82,14 +103,17 @@ class EKSNodes(Blueprint):
 
         variables = self.get_variables()
         vpc_id = variables["VpcId"]
-        cluster_sg = variables["ClusterSecurityGroup"]
+        cluster_sg = variables["ClusterControlPlaneSecurityGroup"]
         asg_min_size = variables["NodeAutoScalingGroupMinSize"]
         asg_max_size = variables["NodeAutoScalingGroupMaxSize"]
         subnet_ids = variables["NodeAutoScalingGroupMaxSize"]
+        node_ami_id = variables["NodeImageId"]
+        node_instance_type = variables["NodeInstanceType"]
+        node_key_name = variables["KeyName"]
+        node_security_group = variables["KeyName"]
+        node_volume_size = variables["NodeVolumeSize"]
 
         basename = "{}Eks".format(self.context.namespace).replace("-", "")
-
-        node_instance_profile = self.create_node_instance_pofile(basename)
 
         node_security_group = self.create_node_security_group(
             basename,
@@ -97,7 +121,30 @@ class EKSNodes(Blueprint):
             cluster_sg
         )
 
-        launch_configuration = self.create_node_launch_configuration()
+        node_instance_role, node_instance_profile = self.create_node_instance_pofile(basename)
+
+        user_data = Join("\n", [
+            "#!/bin/bash ",
+            "set -o xtrace ",
+            "/etc/eks/bootstrap.sh ${ClusterName} ${BootstrapArguments}",
+            Join("", [
+                "/opt/aws/bin/cfn-signal --exit-code $? ",
+                "   --stack ", StackName,
+                "   --resource NodeGroup ",
+                "   --region ", Region, "\n"
+            ])
+        ])
+
+        launch_configuration = self.create_node_launch_configuration(
+            basename,
+            node_instance_profile,
+            node_ami_id,
+            node_instance_type,
+            node_key_name,
+            node_security_group,
+            node_volume_size,
+            user_data
+        )
 
         self.create_node_auto_scaling_group(
             basename,
@@ -105,6 +152,18 @@ class EKSNodes(Blueprint):
             asg_min_size,
             asg_max_size,
             subnet_ids
+        )
+
+        t.add_output(
+            Output(
+                "NodeInstanceRole", Value=GetAtt(node_instance_role, "Arn")
+            )
+        )
+
+        t.add_output(
+            Output(
+                "NodeSecurityGroup", Value=Ref(node_security_group)
+            )
         )
 
 
@@ -119,7 +178,7 @@ class EKSNodes(Blueprint):
                     Statement(
                         Action=[sts.AssumeRole],
                         Effect=Allow,
-                        Principal=Principal("Service", ["eks.amazonaws.com"])
+                        Principal=Principal("Service", ["ec2.amazonaws.com"])
                     )
                 ]
             ),
@@ -131,10 +190,13 @@ class EKSNodes(Blueprint):
             ]
         ))
 
-        return t.add_resource(InstanceProfile(
+        instance_profile = t.add_resource(InstanceProfile(
             "{}NodeInstanceProfile".format(basename),
+            Path="/",
             Roles=[Ref(role)]
         ))
+
+        return role, instance_profile
 
 
     def create_node_security_group(self, basename, vpc_id, cluster_sg):
@@ -143,8 +205,11 @@ class EKSNodes(Blueprint):
         security_group = t.add_resource(
             SecurityGroup(
                 "{}NodeSecurityGroup".format(basename),
-                GroupDescription='Allow the cluster control plane to communicate with worker Kubelet and pods',
-                VpcId=vpc_id
+                GroupDescription='Security group for all nodes in the cluster',
+                VpcId=vpc_id,
+                Tags=[
+                    Tag("kubernetes.io/cluster/{}".format(basename), 'owned', True)
+                ]
             ))
 
         t.add_resource(SecurityGroupIngress(
@@ -161,30 +226,50 @@ class EKSNodes(Blueprint):
             "{}NodeSecurityGroupFromControlPlaneIngress".format(basename),
             Description='Allow worker Kubelets and pods to receive communication from the cluster control plane',
             GroupId=GetAtt(security_group, "GroupId"),
-            SourceSecurityGroupId=GetAtt(cluster_sg, "GroupId"),
-            IpProtocol='-1',
+            SourceSecurityGroupId=cluster_sg,
+            IpProtocol='tcp',
+            FromPort='1025',
+            ToPort='65535'
+        ))
+
+        t.add_resource(SecurityGroupEgress(
+            "{}ControlPlaneEgressToNodeSecurityGroup".format(basename),
+            Description='Allow the cluster control plane to communicate with worker Kubelet and pods',
+            GroupId=cluster_sg,
+            DestinationSecurityGroupId=GetAtt(security_group, "GroupId"),
+            IpProtocol='tcp',
             FromPort='1025',
             ToPort='65535'
         ))
 
         t.add_resource(SecurityGroupIngress(
-            "{}ClusterControlPlaneSecurityGroupIngress".format(basename),
-            Description='Allow pods to communicate with the cluster API Server',
-            GroupId=GetAtt(cluster_sg, "GroupId"),
-            SourceSecurityGroupId=GetAtt(security_group, "GroupId"),
+            "{}NodeSecurityGroupFromControlPlaneOn443Ingress".format(basename),
+            Description='Allow pods running extension API servers on port 443 to receive communication from cluster control plane',
+            GroupId=GetAtt(security_group, "GroupId"),
+            SourceSecurityGroupId=cluster_sg,
             IpProtocol='tcp',
             FromPort='443',
             ToPort='443'
         ))
 
         t.add_resource(SecurityGroupEgress(
-            "{}ControlPlaneEgressToNodeSecurityGroup".format(basename),
-            Description='Allow the cluster control plane to communicate with worker Kubelet and pods',
-            GroupId=GetAtt(cluster_sg, "GroupId"),
+            "{}ControlPlaneEgressToNodeSecurityGroupOn443".format(basename),
+            Description='Allow the cluster control plane to communicate with pods running extension API servers on port 443',
+            GroupId=cluster_sg,
             DestinationSecurityGroupId=GetAtt(security_group, "GroupId"),
             IpProtocol='tcp',
-            FromPort='1025',
-            ToPort='65535'
+            FromPort='443',
+            ToPort='443'
+        ))
+
+        t.add_resource(SecurityGroupIngress(
+            "{}ClusterControlPlaneSecurityGroupIngress".format(basename),
+            Description='Allow pods to communicate with the cluster API Server',
+            GroupId=cluster_sg,
+            SourceSecurityGroupId=GetAtt(security_group, "GroupId"),
+            IpProtocol='tcp',
+            FromPort='443',
+            ToPort='443'
         ))
 
         return security_group
@@ -203,7 +288,7 @@ class EKSNodes(Blueprint):
             VPCZoneIdentifier=subnet_ids,
             Tags=[
                 Tag("Name", "{}Node".format(basename), True),
-                Tag("kubernetes.io/cluster/{}".format(basename), 'shared', True) # shared?
+                Tag("kubernetes.io/cluster/{}".format(basename), 'owned', True)
             ],
             UpdatePolicy=UpdatePolicy(
                 AutoScalingReplacingUpdate=AutoScalingRollingUpdate(
@@ -214,5 +299,26 @@ class EKSNodes(Blueprint):
         ))
 
 
-    def create_node_launch_configuration(self):
+    def create_node_launch_configuration(self, basename, node_instance_profile,
+                            ami_id, instance_type, key_name, security_group,
+                            volume_size, user_data):
         t = self.template
+
+        t.add_resource(LaunchConfiguration(
+            "{}NodeLaunchConfig".format(basename),
+            AssociatePublicIpAddress=True,
+            IamInstanceProfile=Ref(node_instance_profile),
+            ImageId=ami_id,
+            InstanceType=instance_type,
+            KeyName=key_name,
+            SecurityGroups=security_group,
+            BlockDeviceMappings=[{
+                "DeviceName": "/dev/sda1",
+                "Ebs": {
+                    "VolumeSize": volume_size,
+                    "VolumeType": "gp2",
+                    "DeleteOnTermination": True
+                }
+            }],
+            UserData=Base64(user_data)
+        ))

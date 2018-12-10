@@ -11,14 +11,18 @@ stacks:
   - name: eks-cluster
     class_path: blueprints.eks.cluster.EKSCluster
     variables:
-      VpcId: ${output vpc::VPCID}
+      VpcId: ${output eks-vpc::VPCID}
       PublicSubnets: ${output eks-vpc::PublicSubnets}
+      PrivateSubnets: ${output eks-vpc::PrivateSubnets}
       Version: "1.10"
 
   - name: eks-nodes
     class_path: blueprints.eks.nodes.EKSNodes
     variables:
-      ClusterSecurityGroup: ${output eks-cluster::ClusterControlPlaneSecurityGroup}
+      VpcId: ${output eks-vpc::VPCID}
+      ClusterControlPlaneSecurityGroup: ${output eks-cluster::ClusterControlPlaneSecurityGroup}
+      Subnets: ${output eks-vpc::PrivateSubnets}
+      KeyName: "imagefetcher-eks"
 
   # - name: imagefetcher
   #   class_path: blueprints.imagefetcher.Imagefetcher
