@@ -36,7 +36,7 @@ class EKSVPC(Blueprint):
     def create_template(self):
         t = self.template
 
-        t.add_description("Amazon EKS VPC")
+        t.add_description("Amazon EKS - VPC")
 
         variables = self.get_variables()
         vpc_base_cidr = variables["BaseCidr"]

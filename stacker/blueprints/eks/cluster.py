@@ -1,4 +1,7 @@
 from stacker.blueprints.base import Blueprint
+from stacker.blueprints.variables.types import (
+    EC2VPCId
+)
 
 from troposphere import (
     Output, Ref, Template,
@@ -29,7 +32,7 @@ class EKSCluster(Blueprint):
     """
     VARIABLES = {
         "VpcId": {
-            "type": str,
+            "type": EC2VPCId,
             "description": "ID of VPC in which resources will be created"
         },
         "PublicSubnets": {
@@ -50,10 +53,10 @@ class EKSCluster(Blueprint):
 
     def create_template(self):
         t = self.template
-        t.add_description("Stack for EKS infrastructure")
+        t.add_description("Amazon EKS - Cluster")
 
         variables = self.get_variables()
-        vpc_id = variables["VpcId"]
+        vpc_id = variables["VpcId"].ref
         cluster_version = variables["ClusterVersion"]
         public_subnets = variables["PublicSubnets"]
 
@@ -109,8 +112,6 @@ class EKSCluster(Blueprint):
 
     def create_eks_role(self, basename):
         t = self.template
-
-        t.add_description("Allows EKS to manage clusters")
 
         return t.add_resource(Role(
             "{}ClusterRole".format(basename),

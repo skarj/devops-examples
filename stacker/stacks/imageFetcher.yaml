@@ -22,7 +22,9 @@ stacks:
       VpcId: ${output eks-vpc::VPCID}
       ClusterControlPlaneSecurityGroup: ${output eks-cluster::ClusterControlPlaneSecurityGroup}
       Subnets: ${output eks-vpc::PrivateSubnets}
+      ClusterName: ${output eks-cluster::ClusterName}
       KeyName: "imagefetcher-eks"
+      NodeAutoScalingGroupMaxSize: 3
 
   # - name: imagefetcher
   #   class_path: blueprints.imagefetcher.Imagefetcher

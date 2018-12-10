@@ -3,16 +3,20 @@ from stacker.blueprints.variables.types import (
     EC2KeyPairKeyName,
     EC2ImageId,
     EC2SecurityGroupId,
-    EC2VPCId,
-    EC2SubnetId
+    EC2VPCId
 )
 
 from troposphere.iam import Role, InstanceProfile
 from troposphere.policies import UpdatePolicy, AutoScalingRollingUpdate
-from troposphere.autoscaling import AutoScalingGroup, LaunchConfiguration, Tag
+
+from troposphere.autoscaling import (
+    AutoScalingGroup, LaunchConfiguration, Tag
+)
+
 from troposphere import (
     Output, Ref, Template, Region,
-    Join, Split, GetAtt, Base64, StackName
+    Join, Split, GetAtt, Tags,
+    StackName, Base64
 )
 
 from troposphere.ec2 import (
@@ -20,6 +24,7 @@ from troposphere.ec2 import (
     SecurityGroupEgress,
     SecurityGroup
 )
+
 from awacs.aws import Allow, Policy, Statement, Principal
 from awacs import sts
 import awacs.iam as iam
@@ -90,7 +95,7 @@ class EKSNodes(Blueprint):
             "description": "The VPC of the worker instances"
         },
         "Subnets": {
-            "type": EC2SubnetId,
+            "type": str,
             "description": "The subnets where workers can be created"
         },
     }
@@ -102,14 +107,16 @@ class EKSNodes(Blueprint):
         t.add_version("2010-09-09")
 
         variables = self.get_variables()
-        vpc_id = variables["VpcId"]
-        cluster_sg = variables["ClusterControlPlaneSecurityGroup"]
+        vpc_id = variables["VpcId"].ref
+        cluster_sg = variables["ClusterControlPlaneSecurityGroup"].ref
+        bootstrap_args = variables["BootstrapArguments"]
+        cluster_name = variables["ClusterName"]
         asg_min_size = variables["NodeAutoScalingGroupMinSize"]
         asg_max_size = variables["NodeAutoScalingGroupMaxSize"]
-        subnet_ids = variables["NodeAutoScalingGroupMaxSize"]
-        node_ami_id = variables["NodeImageId"]
+        subnet_ids = variables["Subnets"]
+        node_ami_id = variables["NodeImageId"].ref
         node_instance_type = variables["NodeInstanceType"]
-        node_key_name = variables["KeyName"]
+        node_key_name = variables["KeyName"].ref
         node_security_group = variables["KeyName"]
         node_volume_size = variables["NodeVolumeSize"]
 
@@ -123,17 +130,15 @@ class EKSNodes(Blueprint):
 
         node_instance_role, node_instance_profile = self.create_node_instance_pofile(basename)
 
-        user_data = Join("\n", [
-            "#!/bin/bash ",
-            "set -o xtrace ",
-            "/etc/eks/bootstrap.sh ${ClusterName} ${BootstrapArguments}",
-            Join("", [
-                "/opt/aws/bin/cfn-signal --exit-code $? ",
-                "   --stack ", StackName,
-                "   --resource NodeGroup ",
-                "   --region ", Region, "\n"
-            ])
-        ])
+        user_data = Base64(Join('', [
+            "#!/bin/bash\n",
+            "set -o xtrace\n",
+            "/etc/eks/bootstrap.sh {0} {1}".format(cluster_name, bootstrap_args),
+            "/opt/aws/bin/cfn-signal --exit-code $?",
+            "    --resource NodeGroup",
+            "    --stack ", StackName,
+            "    --region ", Region, "\n"
+        ]))
 
         launch_configuration = self.create_node_launch_configuration(
             basename,
@@ -172,7 +177,6 @@ class EKSNodes(Blueprint):
 
         role = t.add_resource(Role(
             "{}NodeInstanceRole".format(basename),
-            Version='2012-10-17',
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(
@@ -207,9 +211,9 @@ class EKSNodes(Blueprint):
                 "{}NodeSecurityGroup".format(basename),
                 GroupDescription='Security group for all nodes in the cluster',
                 VpcId=vpc_id,
-                Tags=[
-                    Tag("kubernetes.io/cluster/{}".format(basename), 'owned', True)
-                ]
+                Tags=Tags({
+                    "kubernetes.io/cluster/{}".format(basename): "owned"
+                })
             ))
 
         t.add_resource(SecurityGroupIngress(
@@ -285,13 +289,13 @@ class EKSNodes(Blueprint):
             LaunchConfigurationName=Ref(launch_config),
             MinSize=min_size,
             MaxSize=max_size,
-            VPCZoneIdentifier=subnet_ids,
+            VPCZoneIdentifier=[subnet_ids],
             Tags=[
                 Tag("Name", "{}Node".format(basename), True),
                 Tag("kubernetes.io/cluster/{}".format(basename), 'owned', True)
             ],
             UpdatePolicy=UpdatePolicy(
-                AutoScalingReplacingUpdate=AutoScalingRollingUpdate(
+                AutoScalingRollingUpdate=AutoScalingRollingUpdate(
                     MinInstancesInService='1',
                     MaxBatchSize='1'
                 )
@@ -304,14 +308,14 @@ class EKSNodes(Blueprint):
                             volume_size, user_data):
         t = self.template
 
-        t.add_resource(LaunchConfiguration(
+        return t.add_resource(LaunchConfiguration(
             "{}NodeLaunchConfig".format(basename),
             AssociatePublicIpAddress=True,
             IamInstanceProfile=Ref(node_instance_profile),
             ImageId=ami_id,
             InstanceType=instance_type,
             KeyName=key_name,
-            SecurityGroups=security_group,
+            SecurityGroups=[Ref(security_group)],
             BlockDeviceMappings=[{
                 "DeviceName": "/dev/sda1",
                 "Ebs": {
