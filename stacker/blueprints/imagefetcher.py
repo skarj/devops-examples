@@ -27,6 +27,14 @@ class Imagefetcher(Blueprint):
         "GithubRepo": {
             "type": str,
             "description": "Github repository URL"
+        },
+        "ClusterName": {
+            "type": str,
+            "description": "The cluster name provided when the cluster was created",
+        },
+        "NodeInstanceRole": {
+            "type": str,
+            "description": "Arn of node role",
         }
     }
 
@@ -37,7 +45,8 @@ class Imagefetcher(Blueprint):
 
         variables = self.get_variables()
         github_repo = variables["GithubRepo"]
-
+        cluster_name = variables["ClusterName"]
+        node_role_arn = variables["NodeInstanceRole"]
         basename = self.context.namespace.replace("-", "")
 
         images_bucket = self.create_images_bucket(basename)
@@ -58,6 +67,41 @@ class Imagefetcher(Blueprint):
         t.add_output(Output(
             "{}Bucket".format(basename),
             Value=Ref(images_bucket))
+        )
+
+        t.add_output(
+            Output(
+                "Kubeconfig", Value=Join("\n",[
+                    "", "=============================================", "",
+                    "To configure kubectl run:", "",
+                    "   aws eks update-kubeconfig --name {}".format(cluster_name), "",
+                    "To check kubernetes cluster run:", "",
+                    "   kubectl get svc",
+                    "", "=============================================",
+                ])
+            )
+        )
+
+        t.add_output(
+            Output(
+                "JoinNodes", Value=Join("\n",[
+                    "", "=============================================", "",
+                    'To enable worker nodes to join cluster run "kubectl apply -f aws-auth-cm.yaml":', "",
+                    "apiVersion: v1",
+                    "kind: ConfigMap",
+                    "metadata:",
+                    "  name: aws-auth",
+                    "  namespace: kube-system",
+                    "data:",
+                    "  mapRoles: |",
+                    "    - rolearn: {}".format(node_role_arn),
+                    "      username: system:node:{{EC2PrivateDNSName}}",
+                    "      groups:",
+                    "        - system:bootstrappers",
+                    "        - system:nodes",
+                    "", "=============================================",
+                ])
+            )
         )
 
 

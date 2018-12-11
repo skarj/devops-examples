@@ -1,0 +1,8 @@
+
+BaseCidr: "10.137"
+CreatePrivateSubnets: "false"
+KubernetesVersion: "1.10"
+KeypairName: "imagefetcher-eks"
+NodesMax: 3
+NodesMin: 1
+AppGithubRepo: "https://github.com/skarj/devops-callenge.git"

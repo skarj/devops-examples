@@ -1,6 +1,8 @@
 from stacker.blueprints.base import Blueprint
+
 from stacker.blueprints.variables.types import (
-    EC2VPCId
+    EC2VPCId,
+    EC2SecurityGroupId
 )
 
 from troposphere import (
@@ -8,11 +10,17 @@ from troposphere import (
     Join, Split, GetAtt
 )
 
-from troposphere.iam import Role
-from troposphere.ec2 import SecurityGroup
-from troposphere.eks import Cluster, ResourcesVpcConfig
+from troposphere.eks import (
+    Cluster,
+    ResourcesVpcConfig
+)
 
-from awacs.aws import Allow, Policy, Statement, Principal
+from awacs.aws import (
+    Allow, Policy,
+    Statement, Principal
+)
+
+from troposphere.iam import Role
 from awacs import sts
 import awacs.iam as iam
 import awacs.ec2 as ec2
@@ -31,23 +39,19 @@ class EKSCluster(Blueprint):
         Public-only: Everything runs in a public subnet, including your worker nodes.
     """
     VARIABLES = {
-        "VpcId": {
-            "type": EC2VPCId,
-            "description": "ID of VPC in which resources will be created"
-        },
-        "PublicSubnets": {
+        "Subnets": {
             "type": str,
-            "description": "List of public vpc subnets"
-        },
-        "PrivateSubnets": {
-            "type": str,
-            "description": "List of private vpc subnets"
+            "description": "List of vpc subnets"
         },
         "ClusterVersion": {
             "type": str,
             "default": "1.10",
             "description": "Version of Kubernetes cluster"
-        }
+        },
+        "ControlPlaneSecurityGroup": {
+            "type": EC2SecurityGroupId,
+            "description": "Cluster control plane security group for communication with worker nodes"
+        },
     }
 
 
@@ -56,19 +60,17 @@ class EKSCluster(Blueprint):
         t.add_description("Amazon EKS - Cluster")
 
         variables = self.get_variables()
-        vpc_id = variables["VpcId"].ref
         cluster_version = variables["ClusterVersion"]
-        public_subnets = variables["PublicSubnets"]
-
+        public_subnets = variables["Subnets"]
+        control_plane_sg = variables["ControlPlaneSecurityGroup"].ref
         basename = "{}Eks".format(self.context.namespace).replace("-", "")
 
         eks_role = self.create_eks_role(basename)
-        eks_security_group = self.create_eks_security_group(basename, vpc_id)
 
         eks_cluser = self.create_eks_cluster(
             basename,
             eks_role,
-            eks_security_group,
+            control_plane_sg,
             public_subnets,
             cluster_version
         )
@@ -90,24 +92,6 @@ class EKSCluster(Blueprint):
                 "ClusterEndpoint", Value=GetAtt(eks_cluser, "Endpoint")
             )
         )
-
-        t.add_output(
-            Output(
-                "ClusterControlPlaneSecurityGroup", Value=Ref(eks_security_group)
-            )
-        )
-
-
-    def create_eks_security_group(self, basename, vpc_id):
-        # https://docs.aws.amazon.com/en_us/eks/latest/userguide/create-public-private-vpc.html#vpc-create-sg
-        t = self.template
-
-        return t.add_resource(
-            SecurityGroup(
-                "{}ControlPlaneSecurityGroup".format(basename),
-                GroupDescription='Cluster communication with worker nodes',
-                VpcId=vpc_id
-            ))
 
 
     def create_eks_role(self, basename):
@@ -131,13 +115,14 @@ class EKSCluster(Blueprint):
         ))
 
 
-    def create_eks_cluster(self, basename, role, security_group, subnets, version):
+    def create_eks_cluster(self, basename, role, control_plane_sg, subnets, version):
         t = self.template
 
         return t.add_resource(Cluster(
             "{}Cluster".format(basename),
             ResourcesVpcConfig=ResourcesVpcConfig(
-                SecurityGroupIds=[Ref(security_group)],
+                # Control plane security group
+                SecurityGroupIds=[control_plane_sg],
                 # Subnets specified must be in at least two different AZs
                 SubnetIds=Split(",", subnets)
             ),
