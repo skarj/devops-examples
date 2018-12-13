@@ -139,7 +139,6 @@ class EKSNodes(Blueprint):
         node_key_name = variables["KeyName"].ref
         node_security_group = variables["KeyName"]
         node_volume_size = variables["NodeVolumeSize"]
-        basename = "{}EKS".format(self.context.namespace).replace("-", "")
 
         if private_subnets:
             subnet_ids = private_subnets
@@ -147,12 +146,12 @@ class EKSNodes(Blueprint):
             subnet_ids = public_subnets
 
         node_security_group = self.create_node_security_group(
-            basename,
+            cluster_name,
             vpc_id,
             cluster_sg
         )
 
-        node_instance_role, node_instance_profile = self.create_node_instance_pofile(basename)
+        node_instance_role, node_instance_profile = self.create_node_instance_pofile()
 
         user_data = Base64(Join('', [
             "#!/bin/bash\n",
@@ -165,7 +164,6 @@ class EKSNodes(Blueprint):
         ]))
 
         launch_configuration = self.create_node_launch_configuration(
-            basename,
             node_instance_profile,
             node_ami_id,
             node_instance_type,
@@ -176,7 +174,7 @@ class EKSNodes(Blueprint):
         )
 
         self.create_node_auto_scaling_group(
-            basename,
+            cluster_name,
             launch_configuration,
             asg_min_size,
             asg_max_size,
@@ -197,11 +195,11 @@ class EKSNodes(Blueprint):
         )
 
 
-    def create_node_instance_pofile(self, basename):
+    def create_node_instance_pofile(self):
         t = self.template
 
         role = t.add_resource(Role(
-            "{}NodeInstanceRole".format(basename),
+            "NodeInstanceRole",
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(
@@ -220,7 +218,7 @@ class EKSNodes(Blueprint):
         ))
 
         instance_profile = t.add_resource(InstanceProfile(
-            "{}NodeInstanceProfile".format(basename),
+            "NodeInstanceProfile",
             Path="/",
             Roles=[Ref(role)]
         ))
@@ -228,21 +226,21 @@ class EKSNodes(Blueprint):
         return role, instance_profile
 
 
-    def create_node_security_group(self, basename, vpc_id, cluster_sg):
+    def create_node_security_group(self, cluster_name, vpc_id, cluster_sg):
         t = self.template
 
         security_group = t.add_resource(
             SecurityGroup(
-                "{}NodeSecurityGroup".format(basename),
+                "NodeSecurityGroup",
                 GroupDescription='Security group for all nodes in the cluster',
                 VpcId=vpc_id,
                 Tags=Tags({
-                    "kubernetes.io/cluster/{}".format(basename): "owned"
+                    "kubernetes.io/cluster/{}".format(cluster_name): "owned"
                 })
             ))
 
         t.add_resource(SecurityGroupIngress(
-            "{}NodeSecurityGroupIngress".format(basename),
+            "NodeSecurityGroupIngress",
             Description='Allow node to communicate with each other',
             GroupId=GetAtt(security_group, "GroupId"),
             SourceSecurityGroupId=GetAtt(security_group, "GroupId"),
@@ -252,7 +250,7 @@ class EKSNodes(Blueprint):
         ))
 
         t.add_resource(SecurityGroupIngress(
-            "{}NodeSecurityGroupFromControlPlaneIngress".format(basename),
+            "NodeSecurityGroupFromControlPlaneIngress",
             Description='Allow worker Kubelets and pods to receive communication from the cluster control plane',
             GroupId=GetAtt(security_group, "GroupId"),
             SourceSecurityGroupId=cluster_sg,
@@ -262,7 +260,7 @@ class EKSNodes(Blueprint):
         ))
 
         t.add_resource(SecurityGroupEgress(
-            "{}ControlPlaneEgressToNodeSecurityGroup".format(basename),
+            "ControlPlaneEgressToNodeSecurityGroup",
             Description='Allow the cluster control plane to communicate with worker Kubelet and pods',
             GroupId=cluster_sg,
             DestinationSecurityGroupId=GetAtt(security_group, "GroupId"),
@@ -272,7 +270,7 @@ class EKSNodes(Blueprint):
         ))
 
         t.add_resource(SecurityGroupIngress(
-            "{}NodeSecurityGroupFromControlPlaneOn443Ingress".format(basename),
+            "NodeSecurityGroupFromControlPlaneOn443Ingress",
             Description='Allow pods running extension API servers on port 443 to receive communication from cluster control plane',
             GroupId=GetAtt(security_group, "GroupId"),
             SourceSecurityGroupId=cluster_sg,
@@ -282,7 +280,7 @@ class EKSNodes(Blueprint):
         ))
 
         t.add_resource(SecurityGroupEgress(
-            "{}ControlPlaneEgressToNodeSecurityGroupOn443".format(basename),
+            "ControlPlaneEgressToNodeSecurityGroupOn443",
             Description='Allow the cluster control plane to communicate with pods running extension API servers on port 443',
             GroupId=cluster_sg,
             DestinationSecurityGroupId=GetAtt(security_group, "GroupId"),
@@ -292,7 +290,7 @@ class EKSNodes(Blueprint):
         ))
 
         t.add_resource(SecurityGroupIngress(
-            "{}ClusterControlPlaneSecurityGroupIngress".format(basename),
+            "ClusterControlPlaneSecurityGroupIngress",
             Description='Allow pods to communicate with the cluster API Server',
             GroupId=cluster_sg,
             SourceSecurityGroupId=GetAtt(security_group, "GroupId"),
@@ -304,13 +302,13 @@ class EKSNodes(Blueprint):
         return security_group
 
 
-    def create_node_launch_configuration(self, basename, node_instance_profile,
+    def create_node_launch_configuration(self, node_instance_profile,
                             ami_id, instance_type, key_name, security_group,
                             volume_size, user_data):
         t = self.template
 
         return t.add_resource(LaunchConfiguration(
-            "{}NodeLaunchConfig".format(basename),
+            "NodeLaunchConfig",
             AssociatePublicIpAddress=True,
             IamInstanceProfile=Ref(node_instance_profile),
             ImageId=ami_id,
@@ -331,7 +329,7 @@ class EKSNodes(Blueprint):
         ))
 
 
-    def create_node_auto_scaling_group(self, basename, launch_config,
+    def create_node_auto_scaling_group(self, cluster_name, launch_config,
                                         min_size, max_size, subnet_ids):
         t = self.template
 
@@ -343,8 +341,8 @@ class EKSNodes(Blueprint):
             MaxSize=max_size,
             VPCZoneIdentifier=[subnet_ids],
             Tags=[
-                Tag("Name", "{}Node".format(basename), True),
-                Tag("kubernetes.io/cluster/{}".format(basename), 'owned', True)
+                Tag("Name", "{}Node".format(cluster_name), True),
+                Tag("kubernetes.io/cluster/{}".format(cluster_name), 'owned', True)
             ],
             CreationPolicy=CreationPolicy(
                 ResourceSignal=ResourceSignal(
@@ -354,7 +352,7 @@ class EKSNodes(Blueprint):
             ),
             UpdatePolicy=UpdatePolicy(
                 AutoScalingRollingUpdate=AutoScalingRollingUpdate(
-                    MinInstancesInService="1",
+                    MinInstancesInService="0" if str(max_size) == "1" else min_size,
                     MaxBatchSize="1",
                     WaitOnResourceSignals="true",
                     PauseTime="PT15M"

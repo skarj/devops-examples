@@ -14,7 +14,7 @@ stacks:
     variables:
       ControlPlaneSecurityGroup: ${output eks-vpc::ClusterControlPlaneSecurityGroup}
       Subnets: ${output eks-vpc::PublicSubnets}
-      Version: ${KubernetesVersion}
+      ClusterVersion: ${KubernetesVersion}
 
   - name: eks-nodes
     class_path: blueprints.eks.nodes.EKSNodes

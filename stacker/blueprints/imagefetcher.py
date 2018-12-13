@@ -74,9 +74,9 @@ class Imagefetcher(Blueprint):
                 "Kubeconfig", Value=Join("\n",[
                     "", "=============================================", "",
                     "To configure kubectl run:", "",
-                    "   aws eks update-kubeconfig --name {}".format(cluster_name), "",
+                    "aws eks update-kubeconfig --name {}".format(cluster_name), "",
                     "To check kubernetes cluster run:", "",
-                    "   kubectl get svc",
+                    "kubectl get svc",
                     "", "=============================================",
                 ])
             )

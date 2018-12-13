@@ -63,9 +63,9 @@ class EKSCluster(Blueprint):
         cluster_version = variables["ClusterVersion"]
         public_subnets = variables["Subnets"]
         control_plane_sg = variables["ControlPlaneSecurityGroup"].ref
-        basename = "{}Eks".format(self.context.namespace).replace("-", "")
+        basename = "{}EKS".format(self.context.namespace).replace("-", "")
 
-        eks_role = self.create_eks_role(basename)
+        eks_role = self.create_eks_role()
 
         eks_cluser = self.create_eks_cluster(
             basename,
@@ -94,11 +94,11 @@ class EKSCluster(Blueprint):
         )
 
 
-    def create_eks_role(self, basename):
+    def create_eks_role(self):
         t = self.template
 
         return t.add_resource(Role(
-            "{}ClusterRole".format(basename),
+            "ClusterRole",
             AssumeRolePolicyDocument=Policy(
                 Statement=[
                     Statement(

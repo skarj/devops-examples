@@ -2,7 +2,8 @@ from stacker.blueprints.base import Blueprint
 
 from troposphere import (
     Output, Ref, GetAtt, GetAZs, NoValue,
-    Template, Join, Tags, Region, Select
+    Template, Join, Tags, Region, Select,
+    StackName
 )
 
 from troposphere.ec2 import (
@@ -47,26 +48,21 @@ class EKSVPC(Blueprint):
         vpc_base_cidr = variables["BaseCidr"]
         create_private_subnets = variables["CreatePrivateSubnets"]
         private_subnets = []
-        basename = "{}Eks".format(self.context.namespace).replace("-", "")
 
-        vpc = self.create_vpc(
-            basename,
-            vpc_base_cidr
-        )
+        vpc = self.create_vpc(vpc_base_cidr)
 
         public_subnet_cidrs = [
+            "{}.16.0/24".format(vpc_base_cidr),
             "{}.24.0/24".format(vpc_base_cidr),
             "{}.32.0/24".format(vpc_base_cidr)
         ]
 
         public_subnet_route_table = self.create_route_table(
-            basename,
             vpc,
             public=True
         )
 
         public_subnets = self.create_subnet(
-            basename,
             vpc,
             public_subnet_cidrs,
             public_subnet_route_table,
@@ -74,12 +70,11 @@ class EKSVPC(Blueprint):
         )
 
         internet_gateway = self.create_internet_gateway(
-            basename,
             vpc
         )
 
         self.add_route(
-            "{}InternetGateway".format(basename),
+            "InternetGateway",
             public_subnet_route_table,
             internet_gateway,
             NoValue,
@@ -90,28 +85,24 @@ class EKSVPC(Blueprint):
 
             private_subnet_cidrs = [
                 "{}.40.0/24".format(vpc_base_cidr),
-                "{}.48.0/24".format(vpc_base_cidr)
+                "{}.48.0/24".format(vpc_base_cidr),
+                "{}.56.0/24".format(vpc_base_cidr)
             ]
 
-            private_subnet_route_table = self.create_route_table(
-                basename,
-                vpc
-            )
+            private_subnet_route_table = self.create_route_table(vpc)
 
             private_subnets = self.create_subnet(
-                basename,
                 vpc,
                 private_subnet_cidrs,
                 private_subnet_route_table
             )
 
             nat_gateway, nat_eip = self.create_nat_gateway(
-                basename,
                 public_subnets[0]
             )
 
             self.add_route(
-                "{}NatGateway".format(basename),
+                "NatGateway",
                 private_subnet_route_table,
                 NoValue,
                 nat_gateway,
@@ -125,7 +116,7 @@ class EKSVPC(Blueprint):
             )
 
         # https://docs.aws.amazon.com/en_us/eks/latest/userguide/create-public-private-vpc.html#vpc-create-sg
-        control_plane_sg = self.create_security_group(basename, vpc)
+        control_plane_sg = self.create_security_group(vpc)
 
         t.add_output(
             Output(
@@ -152,25 +143,25 @@ class EKSVPC(Blueprint):
         )
 
 
-    def create_vpc(self, basename, vpc_base_cidr):
+    def create_vpc(self, vpc_base_cidr):
         t = self.template
 
         return t.add_resource(
             VPC(
-                '{}Vpc'.format(basename),
+                'VPC',
                 # VPC must have DNS hostname and DNS resolution support.
                 # Otherwise, worker nodes cannot register with cluster
                 EnableDnsSupport=True,
                 EnableDnsHostnames=True,
                 CidrBlock="{}.0.0/16".format(vpc_base_cidr),
                 Tags=Tags(
-                    Name=basename
+                    Name="{}-VPC".format(StackName)
                 )
             )
         )
 
 
-    def create_route_table(self, basename, vpc, public=False):
+    def create_route_table(self, vpc, public=False):
         t = self.template
 
         privacy = "Public" if public == True else "Private"
@@ -178,10 +169,10 @@ class EKSVPC(Blueprint):
 
         return t.add_resource(
             RouteTable(
-                '{0}{1}RouteTable'.format(basename, privacy),
+                '{}RouteTable'.format(privacy),
                 VpcId=Ref(vpc),
                 Tags=Tags({
-                    "Name": "{0} {1} Subnets".format(basename, privacy),
+                    "Name": "{} Subnets".format(privacy),
                     "Network": privacy,
                     "kubernetes.io/role/internal-elb": internal_elb
                 })
@@ -189,7 +180,7 @@ class EKSVPC(Blueprint):
         )
 
 
-    def create_subnet(self, basename, vpc, cidrs, route_table, public=False):
+    def create_subnet(self, vpc, cidrs, route_table, public=False):
 
         if type(cidrs) is not list:
             raise TypeError("fatal: cidrs must be a list of cidrs, "
@@ -205,23 +196,20 @@ class EKSVPC(Blueprint):
 
             subnet = t.add_resource(
                 Subnet(
-                    '{0}{1}Subnet{2}'.format(basename, privacy, zone_num),
+                    '{0}Subnet{1}'.format(privacy, zone_num),
                     CidrBlock=cidr,
                     VpcId=Ref(vpc),
                     AvailabilityZone=Select(str(index), GetAZs(Region)),
                     MapPublicIpOnLaunch=public,
                     Tags=Tags({
-                        "Name": "{0} {1} Subnet Zone {2}".format(basename, privacy, zone_num),
-                        "Network": privacy,
-                        # https://docs.aws.amazon.com/en_us/eks/latest/userguide/network_reqs.html
-                        "kubernetes.io/cluster/{}".format(basename): "shared"
+                        "Name": "{0}-{1}-Subnet-Zone-{2}".format(StackName, privacy, zone_num),
                     })
                 )
             )
 
             t.add_resource(
                 SubnetRouteTableAssociation(
-                    '{0}{1}SubnetZone{2}RouteTableAssociation'.format(basename, privacy, zone_num),
+                    '{0}SubnetZone{1}RouteTableAssociation'.format(privacy, zone_num),
                     SubnetId=Ref(subnet),
                     RouteTableId=Ref(route_table),
                 )
@@ -232,37 +220,37 @@ class EKSVPC(Blueprint):
         return subnets
 
 
-    def create_nat_gateway(self, basename, subnet):
+    def create_nat_gateway(self, subnet):
         t = self.template
 
         nat_eip = t.add_resource(
             EIP(
-                '{}NatEIP'.format(basename),
+                'NatEIP',
                 Domain="vpc",
-                DependsOn='{}VPCGatewayAttachment'.format(basename)
+                DependsOn='VPCGatewayAttachment'
             )
         )
 
         nat_gateway = t.add_resource(
             NatGateway(
-                '{}NatGateway'.format(basename),
+                'NatGateway',
                 AllocationId=GetAtt(nat_eip, "AllocationId"),
                 SubnetId=Ref(subnet),
-                DependsOn='{}VPCGatewayAttachment'.format(basename)
+                DependsOn='VPCGatewayAttachment'
             )
         )
 
         return nat_gateway, nat_eip
 
 
-    def create_internet_gateway(self, basename, vpc):
+    def create_internet_gateway(self, vpc):
         t = self.template
 
         internetGateway = t.add_resource(
             InternetGateway(
-                '{}InternetGateway'.format(basename),
+                'InternetGateway',
                 Tags=Tags(
-                    Name=basename,
+                    Name="{}-InternetGateway".format(StackName),
                     Network="Public"
                 )
             )
@@ -270,7 +258,7 @@ class EKSVPC(Blueprint):
 
         t.add_resource(
             VPCGatewayAttachment(
-                '{}VPCGatewayAttachment'.format(basename),
+                'VPCGatewayAttachment',
                 VpcId=Ref(vpc),
                 InternetGatewayId=Ref(internetGateway)
             )
@@ -300,12 +288,12 @@ class EKSVPC(Blueprint):
             ))
 
 
-    def create_security_group(self, basename, vpc):
+    def create_security_group(self, vpc):
         t = self.template
 
         return t.add_resource(
             SecurityGroup(
-                "{}ControlPlaneSecurityGroup".format(basename),
+                "ControlPlaneSecurityGroup",
                 GroupDescription='Cluster communication with worker nodes',
                 VpcId=Ref(vpc)
             ))
