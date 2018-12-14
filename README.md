@@ -1,12 +1,15 @@
 # Image Fetcher
 This repository contains some usefull examples:
-  * simple falsk application that works with AWS Dynamodb and S3 services
-  * troposphere blueprint/stacker configs for AWS infrastructure as code
+  * simple python falsk application that works with AWS Dynamodb and S3 services
+  * troposphere blueprints/stacker configs for AWS EKS cluster creation
 
 
 ## Required tools
-  * kubectl
+  * stacker
   * aws-iam-authenticator
+  * stacker
+  * kubectl
+  * helm
 
 
 ## Starting test environments
@@ -38,6 +41,7 @@ Start application
 
     python ./app.py
 
+
 ### Starting local test environment
 
 Install docker-compose
@@ -52,21 +56,27 @@ Start service
 ## Starting production environment
 ### Creating AWS infrastructure
 
-Create virtual environment
+*  Install dependencies
 
-    python -m venv stacker
-    source stacker/bin/activate
+        cd stacker
+        pip install -r requirements.txt
 
-Install dependencies
+*  Create **AWS infrastructure**
 
-    cd stacker
-    pip install -r requirements.txt
-    stacker build envs/test.yaml stacks/imageFetcher.yaml --recreate-failed --tail
-    stacker info envs/test.yaml stacks/imageFetcher.yaml
-    aws eks update-kubeconfig --name cluster_name
-    kubectl get svc
-    kubectl apply -f aws-auth-cm.yaml
-    kubectl get nodes --watch
+        stacker build envs/test.yaml stacks/imageFetcher.yaml --recreate-failed --tail
+        stacker info envs/test.yaml stacks/imageFetcher.yaml
+
+*  Configure **Kubernetes**
+
+        aws eks update-kubeconfig --name cluster_name
+        kubectl get svc
+        kubectl apply -f aws-auth-cm.yaml
+        kubectl get nodes --watch
+
+*  Install **Helm**
+
+        kubectl apply -f helm/helm-tiller
+        helm init --service-account tiller
 
 
 ## Testing application
