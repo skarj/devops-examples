@@ -1,0 +1,81 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+{{- if .Values.imagefetcher.service.annotations }}
+  annotations:
+{{ toYaml .Values.imagefetcher.service.annotations | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ template "imagefetcher.name" . }}
+    chart: {{ template "imagefetcher.chart" . }}
+    component: "{{ .Values.imagefetcher.name }}"
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  name: {{ template "imagefetcher.app.fullname" . }}
+spec:
+  replicas: {{ .Values.imagefetcher.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "imagefetcher.name" . }}
+      release: {{ .Release.Name }}
+      component: "{{ .Values.imagefetcher.name }}"
+  strategy:
+{{ toYaml .Values.imagefetcher.deploymentStrategy | indent 4 }}
+  template:
+    metadata:
+    {{- if .Values.imagefetcher.podAnnotations }}
+      annotations:
+{{ toYaml .Values.imagefetcher.podAnnotations | indent 8 }}
+    {{- end }}
+      labels:
+        app: {{ template "imagefetcher.name" . }}
+        component: "{{ .Values.imagefetcher.name }}"
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: imagefetcher-app
+          image: "{{ .Values.imagefetcher.image.repository }}:{{ .Values.imagefetcher.image.tag }}"
+          imagePullPolicy: "{{ .Values.imagefetcher.image.pullPolicy }}"
+          ports:
+            - name: api
+              containerPort: 5000
+          env:
+          - name: MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{ .Values.imagefetcher.mongodb.secret.name }}"
+                key: "{{ .Values.imagefetcher.mongodb.secret.password_key }}"
+          - name: S3_BUCKET
+            value: "{{ .Values.imagefetcher.s3.bucket }}"
+          - name: DYNAMODB_ENDPOINT
+            value: "{{ .Values.imagefetcher.dynamodb.endpoint }}"
+          livenessProbe:
+            httpGet:
+              path: /api/v1
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /api/v1
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          resources:
+{{ toYaml .Values.imagefetcher.resources | indent 12 }}
+    {{- with .Values.imagefetcher.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.imagefetcher.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.imagefetcher.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}

@@ -1,0 +1,19 @@
+{{- if gt .Values.imagefetcher.replicaCount 1.0 }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: {{ template "imagefetcher.name" . }}
+    chart: {{ template "imagefetcher.chart" . }}
+    component: "{{ .Values.imagefetcher.name }}"
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  name: {{ template "imagefetcher.app.fullname" . }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "imagefetcher.name" . }}
+      release: {{ .Release.Name }}
+      component: "{{ .Values.imagefetcher.name }}"
+  minAvailable: {{ .Values.imagefetcher.minAvailable }}
+{{- end }}

@@ -1,0 +1,28 @@
+{{- if .Values.imagefetcher.autoscaling.enabled }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: {{ template "imagefetcher.name" . }}
+    chart: {{ template "imagefetcher.chart" . }}
+    component: "{{ .Values.imagefetcher.name }}"
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  name: {{ template "imagefetcher.app.fullname" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: {{ template "imagefetcher.app.fullname" . }}
+  minReplicas: {{ .Values.imagefetcher.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.imagefetcher.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.imagefetcher.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: {{ .Values.imagefetcher.autoscaling.targetMemoryUtilizationPercentage }}
+{{- end }}
