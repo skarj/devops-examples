@@ -15,42 +15,42 @@ This repository contains some usefull examples:
 ## Starting test environments
 ### Starting local dev environment
 
-Create virtual environment
+*  Create virtual environment
 
-    python -m venv flask
-    source flask/bin/activate
+        python -m venv flask
+        source flask/bin/activate
 
-Install dependencies
+*  Install dependencies
 
-    pip install -r requirements.txt
-    pip install docker-compose
+        pip install -r requirements.txt
+        pip install docker-compose
 
-Start S3 and Dynamodb local servers, create bucket for images
+*  Start S3 and Dynamodb local servers, create bucket for images
 
-    docker-compose up -d dynamodb s3server aws-cli
+        docker-compose up -d dynamodb s3server aws-cli
 
-Set environment variables
+*  Set environment variables
 
-    export APP_SETTINGS="config.dev"
-    export AWS_ACCESS_KEY="accessKey1"
-    export AWS_SECRET_KEY="verySecretKey1"
-    export AWS_REGION="eu-central-1"
-    export S3_BUCKET="images"
+        export APP_SETTINGS="config.dev"
+        export AWS_ACCESS_KEY="accessKey1"
+        export AWS_SECRET_KEY="verySecretKey1"
+        export AWS_REGION="eu-central-1"
+        export S3_BUCKET="images"
 
-Start application
+*  Start application
 
-    python ./app.py
+        python ./app.py
 
 
 ### Starting local test environment
 
-Install docker-compose
+*  Install docker-compose
 
-    pip install docker-compose
+        pip install docker-compose
 
-Start service
+*  Start service
 
-    docker-compose up -d
+        docker-compose up -d
 
 
 ## Starting production environment
@@ -79,31 +79,32 @@ Start service
         helm init --service-account tiller
 
 
-## Testing application
-### Request image uploading
-
-    curl -X POST "localhost:5000/api/v1/images" -H 'Content-Type: application/json' -d'
-    {
-        "name": "Docker logo",
-        "url" : "https://www.docker.com/sites/default/files/Whale%20Logo332_5.png"
-    }
-    '
-
-### Request a single image
-
-    curl -X GET "localhost:5000/api/v1/images/name/test1"
-
-### List all images
-
-    curl -X GET "localhost:5000/api/v1/images"
-
-### Check S3 bucket
-
-    aws s3api list-objects --endpoint-url=http://localhost:8008 --bucket images
-
 ### Destroy AWS infrastructure
 
-    stacker destroy envs/production.yaml stacks/imageFetcher.yaml --force --tail
+    stacker destroy envs/test.yaml stacks/imageFetcher.yaml --force --tail
+
+
+## Testing application
+*  Request image uploading
+
+        curl -X POST "localhost:5000/api/v1/images" -H 'Content-Type: application/json' -d'
+        {
+            "name": "Docker logo",
+            "url" : "https://www.docker.com/sites/default/files/Whale%20Logo332_5.png"
+        }
+        '
+
+*  Request a single image
+
+        curl -X GET "localhost:5000/api/v1/images/name/test1"
+
+*  List all images
+
+        curl -X GET "localhost:5000/api/v1/images"
+
+*  Check S3 bucket
+
+        aws s3api list-objects --endpoint-url=http://localhost:8008 --bucket images
 
 ## Documents
   * https://flask-restful.readthedocs.io/en/latest/
