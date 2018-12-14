@@ -155,7 +155,7 @@ class EKSVPC(Blueprint):
                 EnableDnsHostnames=True,
                 CidrBlock="{}.0.0/16".format(vpc_base_cidr),
                 Tags=Tags(
-                    Name="{}-VPC".format(StackName)
+                    Name=Join("-", [StackName, "VPC"])
                 )
             )
         )
@@ -201,9 +201,9 @@ class EKSVPC(Blueprint):
                     VpcId=Ref(vpc),
                     AvailabilityZone=Select(str(index), GetAZs(Region)),
                     MapPublicIpOnLaunch=public,
-                    Tags=Tags({
-                        "Name": "{0}-{1}-Subnet-Zone-{2}".format(StackName, privacy, zone_num),
-                    })
+                    Tags=Tags(
+                        Name=Join("-", [StackName, privacy, "Subnet-Zone", zone_num])
+                    )
                 )
             )
 
@@ -250,7 +250,7 @@ class EKSVPC(Blueprint):
             InternetGateway(
                 'InternetGateway',
                 Tags=Tags(
-                    Name="{}-InternetGateway".format(StackName),
+                    Name=Join("-", [StackName, "InternetGateway"]),
                     Network="Public"
                 )
             )
