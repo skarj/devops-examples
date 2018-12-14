@@ -3,7 +3,7 @@ services:
   server:
     build: .
     ports:
-     - "5000:5000"
+     - "80:80"
     environment:
       - APP_SETTINGS=config.test
       - AWS_ACCESS_KEY=accessKey1
@@ -31,7 +31,7 @@ services:
     ports:
       - "8008:8000"
     volumes:
-      - ./s3config.json:/usr/src/app/config.json:ro
+      - ${PWD}/config/s3config.json:/usr/src/app/config.json:ro
   aws-cli:
     image: mesosphere/aws-cli
     environment:
@@ -43,6 +43,3 @@ services:
     depends_on:
       - s3server
     command: s3api create-bucket --bucket images --acl public-read --endpoint http://s3server:8000
-
-volumes:
-  s3config.json:

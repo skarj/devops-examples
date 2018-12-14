@@ -1,0 +1,15 @@
+{
+    "listeners": {
+      "*:80": {
+        "application": "imagefetcher"
+      }
+    },
+    "applications": {
+      "imagefetcher": {
+        "type": "python",
+        "processes": 2,
+        "path": "/usr/src/app",
+        "module": "wsgi"
+      }
+    }
+}
