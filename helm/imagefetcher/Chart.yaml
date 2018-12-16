@@ -2,5 +2,5 @@ name: imagefetcher
 version: 0.0.1
 description: Imagefetcher App service
 sources:
-- https://github.com/skarj/devops-callenge/app
+- https://github.com/skarj/devops-examples/app
 engine: gotpl

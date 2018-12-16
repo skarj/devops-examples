@@ -5,4 +5,4 @@ KubernetesVersion: "1.11"
 KeypairName: "imagefetcher-eks"
 NodesMax: 1
 NodesMin: 1
-AppGithubRepo: "https://github.com/skarj/devops-callenge.git"
+AppGithubRepo: "https://github.com/skarj/devops-examples.git"

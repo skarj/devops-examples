@@ -1,9 +1,10 @@
 # Image Fetcher
-This repository contains some usefull examples:
-  * simple python falsk application that works with AWS Dynamodb and S3 services
-  * nginx-unit configuration example with python application in docker container
-  * docker compose example for local tests
+This repository contains examples that may be usefull for Devops Engineers:
+  * python falsk application that uses AWS Dynamodb, AWS S3 and REST api
+  * nginx-unit configuration example for python application in docker container
+  * docker-compose example for local tests
   * troposphere blueprints/stacker configs for AWS EKS cluster creation
+  * Helm chart example
 
 
 ## Required tools
@@ -81,6 +82,8 @@ This repository contains some usefull examples:
         helm init --service-account tiller
 
 *  Install **Imagefetcher**
+
+        helm install helm/imagefetcher --name imagefetcher --namespace imagefetcher -f values-test.yaml
 
 
 ### Destroy AWS infrastructure
