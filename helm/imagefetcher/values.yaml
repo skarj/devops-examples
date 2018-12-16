@@ -6,8 +6,8 @@ imagefetcher:
   node_env: test
 
   image:
-    repository: ""
-    tag: latest
+    repository: nginx/unit
+    tag: 1.6-python2.7
     pullPolicy: Always
 
   replicaCount: 1

@@ -38,20 +38,16 @@ spec:
           imagePullPolicy: "{{ .Values.imagefetcher.image.pullPolicy }}"
           ports:
             - name: api
-              containerPort: 5000
+              containerPort: 80
           env:
-          - name: MONGODB_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: "{{ .Values.imagefetcher.mongodb.secret.name }}"
-                key: "{{ .Values.imagefetcher.mongodb.secret.password_key }}"
           - name: S3_BUCKET
             value: "{{ .Values.imagefetcher.s3.bucket }}"
           - name: DYNAMODB_ENDPOINT
             value: "{{ .Values.imagefetcher.dynamodb.endpoint }}"
           livenessProbe:
             httpGet:
-              path: /api/v1
+              port: 80
+              path: /
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -59,7 +55,8 @@ spec:
             failureThreshold: 6
           readinessProbe:
             httpGet:
-              path: /api/v1
+              port: 80
+              path: /
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5

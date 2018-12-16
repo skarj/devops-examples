@@ -2,7 +2,7 @@
 This repository contains some usefull examples:
   * simple python falsk application that works with AWS Dynamodb and S3 services
   * nginx-unit configuration example with python application in docker container
-  * docker compose examle for local tests
+  * docker compose example for local tests
   * troposphere blueprints/stacker configs for AWS EKS cluster creation
 
 
@@ -79,6 +79,8 @@ This repository contains some usefull examples:
 
         kubectl apply -f helm/helm-tiller
         helm init --service-account tiller
+
+*  Install **Imagefetcher**
 
 
 ### Destroy AWS infrastructure
