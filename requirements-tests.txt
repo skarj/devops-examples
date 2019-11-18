@@ -1,0 +1,5 @@
+flask==1.0.2
+flask-restful==0.3.6
+requests==2.20.1
+boto3==1.9.46
+xmlrunner==1.7.7

@@ -19,4 +19,6 @@ class TestHello(unittest.TestCase):
         self.assertIn(b'"dynamodb_endpoint": null, \n', rv.data)
 
 if __name__ == '__main__':
-    unittest.main()
+    import xmlrunner
+    runner = xmlrunner.XMLTestRunner(output='test-reports')
+    unittest.main(testRunner=runner)
