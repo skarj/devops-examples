@@ -14,9 +14,9 @@ class TestHello(unittest.TestCase):
         self.assertEqual(rv.status, '404 NOT FOUND')
 
     def test_list(self):
-        rv = self.app.get('/api/v1/images')
+        rv = self.app.get('/api/v1/config')
         self.assertEqual(rv.status, '200 OK')
-        self.assertEqual(rv.data, b'[]\n')
+        self.assertIn(b'"dynamodb_endpoint": null, \n', rv.data)
 
 if __name__ == '__main__':
     unittest.main()

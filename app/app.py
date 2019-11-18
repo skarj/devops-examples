@@ -9,7 +9,7 @@ application = Flask(__name__, instance_relative_config=True)
 application.config.from_object(environ['APP_SETTINGS'])
 api = Api(application)
 
-class Image(Resource):
+class Images(Resource):
     def __init__(self):
 
         self.fetcher = Fetcher(
@@ -53,7 +53,20 @@ class Image(Resource):
             URL=s3_image_url
         )
 
-api.add_resource(Image, "/api/v1/images")
+class Config(Resource):
+    def get(self):
+        return jsonify(
+            app_port = application.config['PORT'],
+            app_host = application.config['HOST'],
+            aws_region = application.config['AWS_REGION'],
+            dynamodb_endpoint = application.config['DYNAMODB_ENDPOINT'],
+            s3_bucket_name = application.config['S3_BUCKET'],
+            s3_bucket_endpoint = application.config['S3_ENDPOINT']
+        )
+
+
+api.add_resource(Images, "/api/v1/images")
+api.add_resource(Config, "/api/v1/config")
 
 if __name__ == '__main__':
     application.run(
