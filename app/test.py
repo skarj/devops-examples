@@ -3,7 +3,7 @@
 import unittest
 import app
 
-class TestHello(unittest.TestCase):
+class TestConfig(unittest.TestCase):
 
     def setUp(self):
         app.application.testing = True
