@@ -10,7 +10,6 @@ This repository contains examples that may be usefull for Devops Engineers:
 ## Required tools
   * stacker
   * aws-iam-authenticator
-  * stacker
   * kubectl
   * helm
 
@@ -56,6 +55,17 @@ This repository contains examples that may be usefull for Devops Engineers:
         docker-compose up -d
 
 
+### Starting application container manually
+
+*  Build docker image
+
+        docker build --tag=imagefetcher .
+
+*  Start container
+
+        docker run -d -e APP_SETTINGS="config.dev" -p 5000:80 imagefetcher
+
+
 ## Starting production environment
 ### Creating AWS infrastructure
 
@@ -92,6 +102,10 @@ This repository contains examples that may be usefull for Devops Engineers:
 
 
 ## Testing application
+*  Got configuration
+
+        curl -X GET "localhost:5000/api/v1/config"
+
 *  Request image uploading
 
         curl -X POST "localhost:5000/api/v1/images" -H 'Content-Type: application/json' -d'

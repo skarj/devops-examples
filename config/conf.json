@@ -1,15 +1,14 @@
 {
     "listeners": {
       "*:80": {
-        "application": "imagefetcher"
+        "pass": "applications/imagefetcher"
       }
     },
     "applications": {
       "imagefetcher": {
-        "type": "python",
-        "processes": 2,
+        "type": "python 3",
         "path": "/usr/src/app",
-        "module": "wsgi"
+        "module": "app"
       }
     }
 }
