@@ -1,4 +1,4 @@
-from app.app import application
+from app import application
 import unittest
 
 class TestConfig(unittest.TestCase):
