@@ -2,7 +2,7 @@
 
 import boto3
 
-def getDynamoDBConnection(
+def get_dynamodb_connection(
     endpoint_url=None,
     secret_access_key=None,
     access_key_id=None,
@@ -17,7 +17,7 @@ def getDynamoDBConnection(
 
     return db
 
-def createImagesTable(db):
+def create_table_images(db):
     # Create the DynamoDB table.
     table = db.create_table(
         TableName='images',

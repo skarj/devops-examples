@@ -1,4 +1,4 @@
-from .setupDynamoDB import getDynamoDBConnection, createImagesTable
+from .setupDynamoDB import get_dynamodb_connection, create_table_images
 
 class ConnectionManager:
 
@@ -12,7 +12,7 @@ class ConnectionManager:
         self.db = None
         self._images_table = None
 
-        self.db = getDynamoDBConnection(
+        self.db = get_dynamodb_connection(
             endpoint_url=endpoint_url,
             secret_access_key=secret_access_key,
             access_key_id=access_key_id,
@@ -34,4 +34,4 @@ class ConnectionManager:
         return self._images_table
 
     def create_images_table(self):
-        self._images_table = createImagesTable(self.db)
+        self._images_table = create_table_images(self.db)

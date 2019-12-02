@@ -8,15 +8,15 @@ class DBController:
     def __init__(self, connectionManager):
         self.cm = connectionManager
 
-    def checkIfTableExists(self):
+    def check_if_table_exists(self):
         try:
             tablestatus = self.cm.get_images_table().table_status in (
                 "CREATING", "UPDATING", "DELETING", "ACTIVE")
         except ClientError:
             tablestatus = False
-            self.cm.createImagesTable()
+            self.cm.create_table.images()
 
-    def addImage(self, image_id, image_name, upload_url, s3_url):
+    def add_image(self, image_id, image_name, upload_url, s3_url):
         date = str(datetime.now())
         table = self.cm.get_images_table()
         table.put_item(
@@ -29,7 +29,7 @@ class DBController:
             }
         )
 
-    def listImages(self):
+    def list_images(self):
         table = self.cm.get_images_table()
         response = table.scan()
         return response['Items']

@@ -29,10 +29,10 @@ class Images(Resource):
             endpoint_url = application.config['DYNAMODB_ENDPOINT']
         )
         self.dynamodb = DBController(cm)
-        self.dynamodb.checkIfTableExists()
+        self.dynamodb.check_if_table_exists()
 
     def get(self):
-        images = self.dynamodb.listImages()
+        images = self.dynamodb.list_images()
         return images
 
     def post(self):
@@ -46,7 +46,7 @@ class Images(Resource):
         image_id = self.fetcher.upload_object(s3_bucket, stream)
 
         s3_image_url = '{}/{}/{}'.format(s3_endpoint, s3_bucket, image_id)
-        self.dynamodb.addImage(image_id, image_name, image_url, s3_image_url)
+        self.dynamodb.add_image(image_id, image_name, image_url, s3_image_url)
 
         return jsonify(
             Result="Image successfully uploaded",
