@@ -10,7 +10,7 @@ class DBController:
 
     def checkIfTableExists(self):
         try:
-            tablestatus = self.cm.getImagesTable().table_status in (
+            tablestatus = self.cm.get_images_table().table_status in (
                 "CREATING", "UPDATING", "DELETING", "ACTIVE")
         except ClientError:
             tablestatus = False
@@ -18,7 +18,7 @@ class DBController:
 
     def addImage(self, image_id, image_name, upload_url, s3_url):
         date = str(datetime.now())
-        table = self.cm.getImagesTable()
+        table = self.cm.get_images_table()
         table.put_item(
             Item={
                 'ImageID': image_id,
@@ -30,6 +30,6 @@ class DBController:
         )
 
     def listImages(self):
-        table = self.cm.getImagesTable()
+        table = self.cm.get_images_table()
         response = table.scan()
         return response['Items']

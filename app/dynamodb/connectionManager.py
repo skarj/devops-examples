@@ -10,7 +10,7 @@ class ConnectionManager:
         region=None):
 
         self.db = None
-        self.imagesTable = None
+        self._images_table = None
 
         self.db = getDynamoDBConnection(
             endpoint_url=endpoint_url,
@@ -19,19 +19,19 @@ class ConnectionManager:
             region=region
         )
 
-        self.setupImagesTable()
+        self.setup_images_table()
 
-    def setupImagesTable(self):
+    def setup_images_table(self):
         try:
-            self.imagesTable = self.db.Table('images')
+            self._images_table = self.db.Table('images')
         except Exception as e:
             raise e("There was an issue trying to retrieve the images table")
 
-    def getImagesTable(self):
-        if self.imagesTable == None:
-            self.setupImagesTable()
+    def get_images_table(self):
+        if self._images_table == None:
+            self.setup_images_table()
 
-        return self.imagesTable
+        return self._images_table
 
-    def createImagesTable(self):
-        self.imagesTable = createImagesTable(self.db)
+    def create_images_table(self):
+        self._images_table = createImagesTable(self.db)
