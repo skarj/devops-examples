@@ -1,11 +1,11 @@
-import unittest
-import xmlrunner
+from xmlrunner import XMLTestRunner
+from unittest import TestLoader
 
 tests_dir = 'tests'
 reports_dir = 'test-reports'
 
-loader = unittest.TestLoader()
+loader = TestLoader()
 suite = loader.discover(tests_dir)
 
-runner = xmlrunner.XMLTestRunner(output=reports_dir)
+runner = XMLTestRunner(output=reports_dir)
 runner.run(suite)
