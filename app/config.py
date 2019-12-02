@@ -11,14 +11,14 @@ class Config(object):
     S3_ENDPOINT = 'http://{}.s3.amazonaws.com/'.format(S3_BUCKET)
     DYNAMODB_ENDPOINT = os.environ.get('DYNAMODB_ENDPOINT')
 
-class dev(Config):
+class Dev(Config):
     S3_ENDPOINT = 'http://localhost:8008'
     DYNAMODB_ENDPOINT = 'http://localhost:8000'
     DEBUG = True
 
-class test(Config):
+class Test(Config):
     S3_ENDPOINT = os.environ.get('S3_ENDPOINT')
     DEBUG = True
 
-class prod(Config):
+class Prod(Config):
     HOST = '127.0.0.1'

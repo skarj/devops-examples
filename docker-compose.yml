@@ -5,7 +5,7 @@ services:
     ports:
      - "80:80"
     environment:
-      - APP_SETTINGS=config.test
+      - APP_SETTINGS=config.Test
       - AWS_ACCESS_KEY=accessKey1
       - AWS_SECRET_KEY=verySecretKey1
       - AWS_REGION=eu-central-1

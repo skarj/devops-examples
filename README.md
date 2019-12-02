@@ -33,7 +33,7 @@ This repository contains examples that may be usefull for Devops Engineers:
 
 *  Set environment variables
 
-        export APP_SETTINGS="config.dev"
+        export APP_SETTINGS="config.Dev"
         export AWS_ACCESS_KEY="accessKey1"
         export AWS_SECRET_KEY="verySecretKey1"
         export AWS_REGION="eu-central-1"
@@ -63,7 +63,7 @@ This repository contains examples that may be usefull for Devops Engineers:
 
 *  Start container
 
-        docker run -d -e APP_SETTINGS="config.dev" -p 5000:80 imagefetcher
+        docker run -d -e APP_SETTINGS="config.Dev" -p 5000:80 imagefetcher
 
 
 ## Starting production environment
