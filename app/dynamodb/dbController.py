@@ -5,15 +5,13 @@ class DBController:
     """
     DynamoDB API calls
     """
-    def __init__(self, connectionManager):
-        self.cm = connectionManager
+    def __init__(self, _connection_manager):
+        self.cm = _connection_manager
 
     def check_if_table_exists(self):
         try:
-            tablestatus = self.cm.get_images_table().table_status in (
-                "CREATING", "UPDATING", "DELETING", "ACTIVE")
+            self.cm.get_images_table().table_status in ("CREATING", "UPDATING", "DELETING", "ACTIVE")
         except ClientError:
-            tablestatus = False
             self.cm.create_table.images()
 
     def add_image(self, image_id, image_name, upload_url, s3_url):
