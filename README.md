@@ -12,7 +12,6 @@ This repository contains examples that may be usefull for Devops Engineers:
   * kubectl
   * helm
   * stacker
-  * aws-iam-authenticator
 
 ## Starting test environments
 ### Starting local dev environment
