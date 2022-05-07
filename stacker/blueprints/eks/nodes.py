@@ -22,12 +22,14 @@ from troposphere.policies import (
 from troposphere.autoscaling import (
     AutoScalingGroup,
     LaunchConfiguration,
+    BlockDeviceMapping,
+    EBSBlockDevice,
     Tag
 )
 
 from troposphere import (
-    Output, Ref, Template, Region,
-    Join, Split, GetAtt, Tags,
+    Output, Ref, Region,
+    Join,  GetAtt, Tags,
     StackName, Base64
 )
 
@@ -43,8 +45,6 @@ from awacs.aws import (
 )
 
 from awacs import sts
-import awacs.iam as iam
-import awacs.ec2 as ec2
 
 
 class EKSNodes(Blueprint):
@@ -73,12 +73,12 @@ class EKSNodes(Blueprint):
             "constraint_description": "Must be a valid EC2 instance type"
         },
         "NodeAutoScalingGroupMinSize": {
-            "type": int,
+            "type": str,
             "description": "Minimum size of Node Group ASG",
             "default": 1
         },
         "NodeAutoScalingGroupMaxSize": {
-            "type": int,
+            "type": str,
             "description": "Maximum size of Node Group ASG",
             "default": 3
         },
@@ -122,8 +122,8 @@ class EKSNodes(Blueprint):
 
     def create_template(self):
         t = self.template
-        t.add_description("Amazon EKS - Node Group")
-        t.add_version("2010-09-09")
+        t.set_description("Amazon EKS - Node Group")
+        t.set_version("2010-09-09")
 
         variables = self.get_variables()
         vpc_id = variables["VpcId"].ref
@@ -183,7 +183,7 @@ class EKSNodes(Blueprint):
 
         t.add_output(
             Output(
-                "NodeInstanceRole", 
+                "NodeInstanceRole",
                 Value=GetAtt(node_instance_role, "Arn"),
             )
         )
@@ -317,14 +317,16 @@ class EKSNodes(Blueprint):
             SecurityGroups=[
                 Ref(security_group)
             ],
-            BlockDeviceMappings=[{
-                "DeviceName": "/dev/xvda",
-                "Ebs": {
-                    "VolumeSize": volume_size,
-                    "VolumeType": "gp2",
-                    "DeleteOnTermination": True
-                }
-            }],
+            BlockDeviceMappings=[
+                BlockDeviceMapping(
+                    DeviceName="/dev/sda1",
+                    Ebs=EBSBlockDevice(
+                        VolumeSize=volume_size,
+                        VolumeType="gp2",
+                        DeleteOnTermination=True,
+                    ),
+                )
+            ],
             UserData=user_data
         ))
 
@@ -352,7 +354,7 @@ class EKSNodes(Blueprint):
             ),
             UpdatePolicy=UpdatePolicy(
                 AutoScalingRollingUpdate=AutoScalingRollingUpdate(
-                    MinInstancesInService="0" if str(max_size) == "1" else min_size,
+                    MinInstancesInService="0" if max_size == "1" else min_size,
                     MaxBatchSize="1",
                     WaitOnResourceSignals="true",
                     PauseTime="PT15M"

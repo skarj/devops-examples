@@ -86,11 +86,6 @@ This repository contains examples that may be usefull for Devops Engineers:
         kubectl apply -f aws-auth-cm.yaml
         kubectl get nodes --watch
 
-*  Install **Helm**
-
-        kubectl apply -f helm/helm-tiller
-        helm init --service-account tiller
-
 *  Install **Imagefetcher**
 
         helm install helm/imagefetcher --name imagefetcher --namespace imagefetcher -f values-test.yaml

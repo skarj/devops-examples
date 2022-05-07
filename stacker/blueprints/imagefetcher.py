@@ -8,7 +8,7 @@ from troposphere.codebuild import (
 )
 
 from troposphere import (
-    Output, Ref, Template, AccountId,
+    Output, Ref, AccountId,
     Region, Join, GetAtt
 )
 
@@ -41,7 +41,7 @@ class Imagefetcher(Blueprint):
 
     def create_template(self):
         t = self.template
-        t.add_description("Stack for imagefetcher infrastructure")
+        t.set_description("Stack for imagefetcher infrastructure")
 
         variables = self.get_variables()
         github_repo = variables["GithubRepo"]
@@ -205,7 +205,7 @@ class Imagefetcher(Blueprint):
     def create_codebuild_project(self, basename, service_role, github_repo):
         t = self.template
 
-        t.add_version('2010-09-09')
+        t.set_version('2010-09-09')
 
         artifacts = Artifacts(Type='NO_ARTIFACTS')
 

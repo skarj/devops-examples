@@ -1,8 +1,8 @@
 
 BaseCidr: "10.137"
 CreatePrivateSubnets: "false"
-KubernetesVersion: "1.11"
+KubernetesVersion: "1.21"
 KeypairName: "imagefetcher-eks"
-NodesMax: 1
-NodesMin: 1
+NodesMax: "1"
+NodesMin: "1"
 AppGithubRepo: "https://github.com/skarj/devops-examples.git"

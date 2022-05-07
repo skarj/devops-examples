@@ -2,7 +2,7 @@ from stacker.blueprints.base import Blueprint
 
 from troposphere import (
     Output, Ref, GetAtt, GetAZs, NoValue,
-    Template, Join, Tags, Region, Select,
+    Join, Tags, Region, Select,
     StackName
 )
 
@@ -42,7 +42,7 @@ class EKSVPC(Blueprint):
     def create_template(self):
         t = self.template
 
-        t.add_description("Amazon EKS - VPC")
+        t.set_description("Amazon EKS - VPC")
 
         variables = self.get_variables()
         vpc_base_cidr = variables["BaseCidr"]

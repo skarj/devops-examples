@@ -1,13 +1,11 @@
 from stacker.blueprints.base import Blueprint
 
 from stacker.blueprints.variables.types import (
-    EC2VPCId,
     EC2SecurityGroupId
 )
 
 from troposphere import (
-    Output, Ref, Template,
-    Join, Split, GetAtt
+    Output, Ref, Split, GetAtt
 )
 
 from troposphere.eks import (
@@ -22,8 +20,6 @@ from awacs.aws import (
 
 from troposphere.iam import Role
 from awacs import sts
-import awacs.iam as iam
-import awacs.ec2 as ec2
 
 
 class EKSCluster(Blueprint):
@@ -57,7 +53,7 @@ class EKSCluster(Blueprint):
 
     def create_template(self):
         t = self.template
-        t.add_description("Amazon EKS - Cluster")
+        t.set_description("Amazon EKS - Cluster")
 
         variables = self.get_variables()
         cluster_version = variables["ClusterVersion"]
